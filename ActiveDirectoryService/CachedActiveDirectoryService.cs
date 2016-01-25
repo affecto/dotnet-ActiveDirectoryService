@@ -12,34 +12,34 @@ namespace Affecto.ActiveDirectoryService
 
         private readonly TimeSpan cacheDuration;
 
-        public CachedActiveDirectoryService(string domainPath, TimeSpan cacheDuration)
+        public CachedActiveDirectoryService(DomainPath domainPath, TimeSpan cacheDuration)
             : base(domainPath)
         {
             this.cacheDuration = cacheDuration;
         }
 
-        public override IPrincipal GetUser(string userName)
+        public override IPrincipal GetUser(string userName, ICollection<string> additionalPropertyNames = null)
         {
-            var cacheKey = CreateCacheKey("GetUser", userName);
-            return GetCachedObject(cacheKey, () => base.GetUser(userName));
+            string cacheKey = CreateCacheKey("GetUser", userName);
+            return GetCachedObject(cacheKey, () => base.GetUser(userName, additionalPropertyNames));
         }
 
-        public override IEnumerable<IPrincipal> GetGroupMemberPrincipals(string groupName, bool recursive)
+        public override IEnumerable<IPrincipal> GetGroupMembers(string groupName, bool recursive, ICollection<string> additionalPropertyNames = null)
         {
-            var cacheKey = CreateCacheKey("GetGroupMemberPrincipals", groupName, recursive.ToString());
-            return GetCachedObject(cacheKey, () => base.GetGroupMemberPrincipals(groupName, recursive));
+            string cacheKey = CreateCacheKey("GetGroupMembers", groupName, recursive.ToString());
+            return GetCachedObject(cacheKey, () => base.GetGroupMembers(groupName, recursive, additionalPropertyNames));
         }
 
         protected override IEnumerable<string> GetGroupMemberAccountNames(string groupName)
         {
-            var cacheKey = CreateCacheKey("GetGroupMembers", groupName);
+            string cacheKey = CreateCacheKey("GetGroupMemberAccountNames", groupName);
             return GetCachedObject(cacheKey, () => base.GetGroupMemberAccountNames(groupName));
         }
 
-        protected override IEnumerable<IPrincipal> ResolveMembers(Principal parent, bool isRecursive)
+        protected override IEnumerable<IPrincipal> ResolveMembers(Principal parent, bool isRecursive, ICollection<string> additionalPropertyNames)
         {
-            var cacheKey = CreateCacheKey("ResolveMembers", parent.DomainPath, isRecursive.ToString());
-            return GetCachedObject(cacheKey, () => base.ResolveMembers(parent, isRecursive));
+            string cacheKey = CreateCacheKey("ResolveMembers", parent.DomainPath, isRecursive.ToString());
+            return GetCachedObject(cacheKey, () => base.ResolveMembers(parent, isRecursive, additionalPropertyNames));
         }
 
         private string CreateCacheKey(string id, params string[] keys)

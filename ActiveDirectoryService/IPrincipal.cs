@@ -1,11 +1,15 @@
-﻿namespace Affecto.ActiveDirectoryService
+﻿using System;
+using System.Collections.Generic;
+
+namespace Affecto.ActiveDirectoryService
 {
     public interface IPrincipal
     {
         string Id { get; }
         string DisplayName { get; }
-        string NativeGuid { get; }
+        Guid NativeGuid { get; }
         string DomainPath { get; }
         bool IsGroup { get; }
+        IDictionary<string, object> AdditionalProperties { get; }
     }
 }

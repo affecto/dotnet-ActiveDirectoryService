@@ -6,12 +6,12 @@ namespace Affecto.ActiveDirectoryService
     {
         public static IActiveDirectoryService CreateActiveDirectoryService(string domainPath)
         {
-            return new ActiveDirectoryService(domainPath);
+            return new ActiveDirectoryService(new DomainPath(domainPath));
         }
 
         public static IActiveDirectoryService CreateCachedActiveDirectoryService(string domainPath, TimeSpan cacheDuration)
         {
-            return new CachedActiveDirectoryService(domainPath, cacheDuration);
+            return new CachedActiveDirectoryService(new DomainPath(domainPath), cacheDuration);
         }
     }
 }

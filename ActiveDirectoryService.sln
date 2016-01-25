@@ -1,25 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.30723.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ActiveDirectoryService", "ActiveDirectoryService\ActiveDirectoryService.csproj", "{7BC231DB-B7E1-4206-864F-F043D57AE792}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ActiveDirectoryService.Tests", "ActiveDirectoryService.Tests\ActiveDirectoryService.Tests.csproj", "{0360E40A-DB7E-48DD-969F-DAC722C1A39A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tester", "Tester\Tester.csproj", "{2FF5882D-133D-4648-8B19-8D611095C3C0}"
+EndProject
 Global
-	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 3
-		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
-		SccTeamFoundationServer = http://hkitfs2010.fi.dom:8080/tfs/ecmficollection
-		SccLocalPath0 = .
-		SccProjectUniqueName1 = ActiveDirectoryService\\ActiveDirectoryService.csproj
-		SccLocalPath1 = .
-		SccProjectFilePathRelativizedFromConnection1 = ActiveDirectoryService\\
-		SccProjectUniqueName2 = ActiveDirectoryService.Tests\\ActiveDirectoryService.Tests.csproj
-		SccProjectName2 = ActiveDirectoryService.Tests
-		SccLocalPath2 = ActiveDirectoryService.Tests
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
@@ -33,6 +23,10 @@ Global
 		{0360E40A-DB7E-48DD-969F-DAC722C1A39A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0360E40A-DB7E-48DD-969F-DAC722C1A39A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0360E40A-DB7E-48DD-969F-DAC722C1A39A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2FF5882D-133D-4648-8B19-8D611095C3C0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2FF5882D-133D-4648-8B19-8D611095C3C0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2FF5882D-133D-4648-8B19-8D611095C3C0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2FF5882D-133D-4648-8B19-8D611095C3C0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

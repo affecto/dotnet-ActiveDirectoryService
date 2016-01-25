@@ -42,6 +42,19 @@ namespace Affecto.ActiveDirectoryService.Tests
         }
 
         [TestMethod]
+        public void AdditionalPropertiesAreLoadedOnSearch()
+        {
+            var properties = new[] { "Prop1", "Prop2" };
+            
+            using (searchRoot = new DirectoryEntry())
+            using (sut = new PrincipalSearcher(searchRoot, UserName, properties))
+            {
+                Assert.IsTrue(sut.PropertiesToLoad.Contains("Prop1"));
+                Assert.IsTrue(sut.PropertiesToLoad.Contains("Prop2"));
+            }
+        }
+
+        [TestMethod]
         public void SearchIsFilteredWithUserName()
         {
             using (searchRoot = new DirectoryEntry())
