@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>$id$</id>
+    <version>$version$</version>
+    <authors>$author$</authors>
+    <description>$description$</description>
+    <projectUrl>https://github.com/affecto/dotnet-ActiveDirectoryService</projectUrl>
+    <tags>affecto active directory ad activedirectory wrapper</tags>
+    <releaseNotes>Moved to GitHub.</releaseNotes>
+  </metadata>
+</package>
