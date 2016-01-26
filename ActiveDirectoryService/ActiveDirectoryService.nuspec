@@ -7,6 +7,10 @@
     <description>$description$</description>
     <projectUrl>https://github.com/affecto/dotnet-ActiveDirectoryService</projectUrl>
     <tags>affecto active directory ad activedirectory wrapper</tags>
-    <releaseNotes>Moved to GitHub.</releaseNotes>
+    <releaseNotes>
+      Principals' additional properties can now be queried.
+      Fixed a possible memory leak bug.
+      Enabled using multiple cached queries simultaneously.
+    </releaseNotes>
   </metadata>
 </package>
