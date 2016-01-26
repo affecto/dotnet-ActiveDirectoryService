@@ -20,14 +20,7 @@ namespace Affecto.ActiveDirectoryService
 
         public string GetPathWithProtocol()
         {
-            string plainValue = Value;
-
-            if (Value.StartsWith(LdapPathPrefix, StringComparison.OrdinalIgnoreCase))
-            {
-                plainValue = Value.Remove(0, LdapPathPrefix.Length);
-            }
-
-            return LdapPathPrefix + plainValue;
+            return LdapPathPrefix + GetPathWithoutProtocol();
         }
 
         public string GetPathWithoutProtocol()
@@ -39,7 +32,5 @@ namespace Affecto.ActiveDirectoryService
 
             return Value;
         }
-
-
     }
 }
