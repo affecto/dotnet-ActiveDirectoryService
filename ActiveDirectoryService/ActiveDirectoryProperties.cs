@@ -2,10 +2,10 @@
 {
     internal static class ActiveDirectoryProperties
     {
-        public const string AccountNameProperty = "sAMAccountName";
-        public const string DisplayNameProperty = "displayName";
-        public const string ObjectGuidProperty = "objectGuid";
-        public const string AccountGroupProperty = "group";
-        public const string MemberProperty = "Member";
+        public const string AccountName = "sAMAccountName";
+        public const string DisplayName = "displayName";
+        public const string ObjectGuid = "objectGuid";
+        public const string AccountGroup = "group";
+        public const string Member = "Member";
     }
 }

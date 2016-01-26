@@ -1,43 +1,93 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.DirectoryServices;
 
 namespace Affecto.ActiveDirectoryService
 {
     internal class Principal : IPrincipal
     {
-        public PropertyValueCollection MemberValueCollection { get; private set; }
-
         public string DomainPath { get; private set; }
-
         public string Id {get; private set;}
-
         public string DisplayName { get; private set; }
-
-        public string NativeGuid { get; private set; }
-
+        public Guid NativeGuid { get; private set; }
         public bool IsGroup { get; private set; }
+        public IDictionary<string, object> AdditionalProperties { get; private set; }
+        internal IEnumerable<string> ChildDomainPaths { get; private set; }
 
-        public Principal(DirectoryEntry directoryEntry)
+        private Principal()
+        {
+        }
+
+        public static Principal FromDirectoryEntry(DirectoryEntry directoryEntry, ICollection<string> additionalPropertyNames = null)
         {
             if (directoryEntry == null)
             {
                 throw new ArgumentNullException("directoryEntry");
             }
-            if (directoryEntry.Properties[ActiveDirectoryProperties.AccountNameProperty].Value == null)
+            if (directoryEntry.Properties[ActiveDirectoryProperties.AccountName].Value == null)
             {
                 throw new ActiveDirectoryException("Account name property not found in active directory entry.");
             }
 
-            Id = directoryEntry.Properties[ActiveDirectoryProperties.AccountNameProperty].Value.ToString();
+            var principal = new Principal
+            {
+                Id = directoryEntry.Properties[ActiveDirectoryProperties.AccountName].Value.ToString(),
+                NativeGuid = new Guid(directoryEntry.NativeGuid),
+                DomainPath = directoryEntry.Path,
+                IsGroup = directoryEntry.SchemaClassName == ActiveDirectoryProperties.AccountGroup,
+            };
 
-            object displayNameValue = directoryEntry.Properties[ActiveDirectoryProperties.DisplayNameProperty].Value;
-            DisplayName = displayNameValue != null ? displayNameValue.ToString() : Id;
+            principal.DisplayName = GetDisplayName(directoryEntry) ?? principal.Id;
+            principal.AdditionalProperties = GetAdditionalProperties(directoryEntry, additionalPropertyNames);
+            principal.ChildDomainPaths = GetChildDomainPaths(directoryEntry);
 
-            NativeGuid = directoryEntry.NativeGuid;
-            DomainPath = directoryEntry.Path;
+            return principal;
+        }
 
-            IsGroup = directoryEntry.SchemaClassName == ActiveDirectoryProperties.AccountGroupProperty;
-            MemberValueCollection = directoryEntry.Properties[ActiveDirectoryProperties.MemberProperty];
+        private static string GetDisplayName(DirectoryEntry directoryEntry)
+        {
+            object displayNameValue = directoryEntry.Properties[ActiveDirectoryProperties.DisplayName].Value;
+            return displayNameValue != null ? displayNameValue.ToString() : null;
+        }
+
+        private static Dictionary<string, object> GetAdditionalProperties(DirectoryEntry directoryEntry, IEnumerable<string> additionalPropertyNames)
+        {
+            var results = new Dictionary<string, object>();
+
+            if (additionalPropertyNames != null)
+            {
+                foreach (string propertyName in additionalPropertyNames)
+                {
+                    PropertyValueCollection propertyValueCollection = directoryEntry.Properties[propertyName];
+                    if (propertyValueCollection != null)
+                    {
+                        results.Add(propertyName, propertyValueCollection.Value);
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        private static List<string> GetChildDomainPaths(DirectoryEntry directoryEntry)
+        {
+            var memberPaths = new List<string>();
+            PropertyValueCollection memberValueCollection = directoryEntry.Properties[ActiveDirectoryProperties.Member];
+
+            if (memberValueCollection != null)
+            {
+                IEnumerator memberEnumerator = memberValueCollection.GetEnumerator();
+                while (memberEnumerator.MoveNext())
+                {
+                    if (memberEnumerator.Current != null)
+                    {
+                        memberPaths.Add(AdDomainPathHandler.Escape(memberEnumerator.Current.ToString()));
+                    }
+                }
+            }
+
+            return memberPaths;
         }
     }
 }

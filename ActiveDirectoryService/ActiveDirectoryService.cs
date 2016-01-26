@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
@@ -9,21 +8,21 @@ namespace Affecto.ActiveDirectoryService
 {
     internal class ActiveDirectoryService : IActiveDirectoryService
     {
-        private readonly string domainPath;
+        private readonly DomainPath domainPath;
 
-        public ActiveDirectoryService(string domainPath)
+        public ActiveDirectoryService(DomainPath domainPath)
         {
-            if (string.IsNullOrWhiteSpace(domainPath))
+            if (domainPath == null)
             {
-                throw new ArgumentException("domainPath must be defined.");
+                throw new ArgumentNullException("domainPath", "Domain path must be defined.");
             }
             this.domainPath = domainPath;
         }
 
-        public virtual IPrincipal GetUser(string userName)
+        public virtual IPrincipal GetUser(string userName, ICollection<string> additionalPropertyNames = null)
         {
-            using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath))
-            using (PrincipalSearcher searcher = new PrincipalSearcher(domainEntry, userName))
+            using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
+            using (PrincipalSearcher searcher = new PrincipalSearcher(domainEntry, userName, additionalPropertyNames))
             {
                 return searcher.Find();
             }
@@ -35,15 +34,15 @@ namespace Affecto.ActiveDirectoryService
                 && GetGroupMemberAccountNames(groupName).Any(o => o.Equals(userName, StringComparison.OrdinalIgnoreCase));
         }
 
-        public virtual IEnumerable<IPrincipal> GetGroupMemberPrincipals(string groupName, bool recursive)
+        public virtual IEnumerable<IPrincipal> GetGroupMembers(string groupName, bool recursive, ICollection<string> additionalPropertyNames = null)
         {
             List<IPrincipal> result = new List<IPrincipal>();
-            using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath))
+            using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
             {
                 using (PrincipalSearcher principalSearcher = new PrincipalSearcher(domainEntry, groupName))
                 {
                     Principal groupPrincipal = principalSearcher.Find();
-                    result.AddRange(ResolveMembers(groupPrincipal, recursive));
+                    result.AddRange(ResolveMembers(groupPrincipal, recursive, additionalPropertyNames));
                 }
             }
             return result;
@@ -51,7 +50,7 @@ namespace Affecto.ActiveDirectoryService
 
         protected virtual IEnumerable<string> GetGroupMemberAccountNames(string groupName)
         {
-            using (var ctx = new PrincipalContext(ContextType.Domain, domainPath))
+            using (var ctx = new PrincipalContext(ContextType.Domain, domainPath.GetPathWithoutProtocol()))
             using (var group = GroupPrincipal.FindByIdentity(ctx, groupName))
             {
                 if (group != null)
@@ -62,42 +61,34 @@ namespace Affecto.ActiveDirectoryService
             return Enumerable.Empty<string>();
         }
 
-        protected virtual IEnumerable<IPrincipal> ResolveMembers(Principal parent, bool isRecursive)
+        protected virtual IEnumerable<IPrincipal> ResolveMembers(Principal parent, bool isRecursive, ICollection<string> additionalPropertyNames)
         {
             if (!parent.IsGroup)
             {
                 return Enumerable.Empty<IPrincipal>();
             }
 
-            var result = new List<IPrincipal>();
+            var results = new List<IPrincipal>();
 
-            if (parent.MemberValueCollection != null)
+            foreach (string childDomainPath in parent.ChildDomainPaths)
             {
-                IEnumerator memberEnumerator = parent.MemberValueCollection.GetEnumerator();
-
-                while (memberEnumerator.MoveNext())
+                string fullChildDomainPath = domainPath.GetPathWithProtocol() + "/" + childDomainPath;
+                if (!results.Any(user => user.DomainPath.Equals(fullChildDomainPath)))
                 {
-                    if (memberEnumerator.Current != null)
+                    using (var childDirectoryEntry = new DirectoryEntry(fullChildDomainPath))
                     {
-                        string userDomainPath = AdDomainPathHandler.Escape(memberEnumerator.Current.ToString());
-
-                        if (!result.Any(e => e.DomainPath.Equals(domainPath + "/" + userDomainPath)))
+                        Principal childPrincipal = Principal.FromDirectoryEntry(childDirectoryEntry, additionalPropertyNames);
+                        results.Add(childPrincipal);
+                        if (isRecursive)
                         {
-                            using (var childDirectoryEntry = new DirectoryEntry(domainPath + "/" + userDomainPath))
-                            {
-                                Principal childPrincipal = new Principal(childDirectoryEntry);
-                                result.Add(childPrincipal);
-                                if (isRecursive)
-                                {
-                                    IEnumerable<IPrincipal> childPrincipalMembers = ResolveMembers(childPrincipal, true);
-                                    result.AddRange(childPrincipalMembers.Where(p => !result.Any(r => r.NativeGuid == p.NativeGuid)));
-                                }
-                            }
+                            IEnumerable<IPrincipal> childPrincipalMembers = ResolveMembers(childPrincipal, true, additionalPropertyNames);
+                            results.AddRange(childPrincipalMembers.Where(p => results.All(r => r.NativeGuid != p.NativeGuid)));
                         }
                     }
                 }
             }
-            return result;
+
+            return results;
         }
     }
 }
