@@ -10,6 +10,7 @@ namespace Affecto.ActiveDirectoryService
         private const string GetUserKey = "GetUserKey";
         private const string GetGroupMembersKey = "GetGroupMembers";
         private const string GetGroupMemberAccountNamesKey = "GetGroupMemberAccountNames";
+        private const string SearchPrincipalsKey = "SearchPrincipals";
         private const string ResolveMembersKey = "ResolveMembers";
 
         private static readonly MemoryCache Cache = new MemoryCache(CacheName);
@@ -18,6 +19,7 @@ namespace Affecto.ActiveDirectoryService
             { GetUserKey, new object() },
             { GetGroupMembersKey, new object() },
             { GetGroupMemberAccountNamesKey, new object() },
+            { SearchPrincipalsKey, new object() },
             { ResolveMembersKey, new object() }
         };
 
@@ -39,6 +41,12 @@ namespace Affecto.ActiveDirectoryService
         {
             string cacheKey = CreateCacheKey(GetGroupMembersKey, groupName, recursive.ToString(), FormatAdditionalPropertyNames(additionalPropertyNames));
             return GetCachedValue(GetGroupMembersKey, cacheKey, () => base.GetGroupMembers(groupName, recursive, additionalPropertyNames));
+        }
+
+        public override IEnumerable<IPrincipal> SearchPrincipals(string ldapFilter, ICollection<string> additionalPropertyNames = null)
+        {
+            string cacheKey = CreateCacheKey(SearchPrincipalsKey, ldapFilter, FormatAdditionalPropertyNames(additionalPropertyNames));
+            return GetCachedValue(SearchPrincipalsKey, cacheKey, () => base.SearchPrincipals(ldapFilter, additionalPropertyNames));
         }
 
         protected override IEnumerable<string> GetGroupMemberAccountNames(string groupName)

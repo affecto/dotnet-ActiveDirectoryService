@@ -15,7 +15,7 @@ namespace Affecto.ActiveDirectoryService.Tests
         public void DisplayNameIsLoadedOnSearch()
         {
             using (searchRoot = new DirectoryEntry())
-            using (sut = new PrincipalSearcher(searchRoot, UserName))
+            using (sut = new PrincipalSearcher(searchRoot))
             {
                 Assert.IsTrue(sut.PropertiesToLoad.Contains("displayName"));
             }
@@ -25,7 +25,7 @@ namespace Affecto.ActiveDirectoryService.Tests
         public void ObjectGuidIsLoadedOnSearch()
         {
             using (searchRoot = new DirectoryEntry())
-            using (sut = new PrincipalSearcher(searchRoot, UserName))
+            using (sut = new PrincipalSearcher(searchRoot))
             {
                 Assert.IsTrue(sut.PropertiesToLoad.Contains("objectGuid"));
             }
@@ -35,7 +35,7 @@ namespace Affecto.ActiveDirectoryService.Tests
         public void MemberPropertyIsLoadedOnSearch()
         {
             using (searchRoot = new DirectoryEntry())
-            using (sut = new PrincipalSearcher(searchRoot, UserName))
+            using (sut = new PrincipalSearcher(searchRoot))
             {
                 Assert.IsTrue(sut.PropertiesToLoad.Contains("Member"));
             }
@@ -47,30 +47,10 @@ namespace Affecto.ActiveDirectoryService.Tests
             var properties = new[] { "Prop1", "Prop2" };
             
             using (searchRoot = new DirectoryEntry())
-            using (sut = new PrincipalSearcher(searchRoot, UserName, properties))
+            using (sut = new PrincipalSearcher(searchRoot, properties))
             {
                 Assert.IsTrue(sut.PropertiesToLoad.Contains("Prop1"));
                 Assert.IsTrue(sut.PropertiesToLoad.Contains("Prop2"));
-            }
-        }
-
-        [TestMethod]
-        public void SearchIsFilteredWithUserName()
-        {
-            using (searchRoot = new DirectoryEntry())
-            using (sut = new PrincipalSearcher(searchRoot, UserName))
-            {
-                Assert.AreEqual("(sAMAccountName=user)", sut.Filter);
-            }
-        }
-
-        [TestMethod]
-        public void DomainIsRemovedFromUserNameBeforeTheFilterIsSet()
-        {
-            using (searchRoot = new DirectoryEntry())
-            using (sut = new PrincipalSearcher(searchRoot, @"fi\user"))
-            {
-                Assert.AreEqual("(sAMAccountName=user)", sut.Filter);
             }
         }
     }
