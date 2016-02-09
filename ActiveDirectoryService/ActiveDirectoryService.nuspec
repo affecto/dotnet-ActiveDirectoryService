@@ -8,9 +8,7 @@
     <projectUrl>https://github.com/affecto/dotnet-ActiveDirectoryService</projectUrl>
     <tags>affecto active directory ad activedirectory wrapper</tags>
     <releaseNotes>
-      Principals' additional properties can now be queried.
-      Fixed a possible memory leak bug.
-      Enabled using multiple cached queries simultaneously.
+      Added a method for searching principals using an LDAP query.
     </releaseNotes>
   </metadata>
 </package>
