@@ -22,9 +22,9 @@ namespace Affecto.ActiveDirectoryService
         public virtual IPrincipal GetUser(string userName, ICollection<string> additionalPropertyNames = null)
         {
             using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
-            using (PrincipalSearcher searcher = new PrincipalSearcher(domainEntry, userName, additionalPropertyNames))
+            using (PrincipalSearcher searcher = new PrincipalSearcher(domainEntry, additionalPropertyNames))
             {
-                return searcher.Find();
+                return searcher.FindPrincipal(userName);
             }
         }
 
@@ -39,13 +39,22 @@ namespace Affecto.ActiveDirectoryService
             List<IPrincipal> result = new List<IPrincipal>();
             using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
             {
-                using (PrincipalSearcher principalSearcher = new PrincipalSearcher(domainEntry, groupName))
+                using (PrincipalSearcher principalSearcher = new PrincipalSearcher(domainEntry))
                 {
-                    Principal groupPrincipal = principalSearcher.Find();
+                    Principal groupPrincipal = principalSearcher.FindPrincipal(groupName);
                     result.AddRange(ResolveMembers(groupPrincipal, recursive, additionalPropertyNames));
                 }
             }
             return result;
+        }
+
+        public virtual IEnumerable<IPrincipal> SearchPrincipals(string ldapFilter, ICollection<string> additionalPropertyNames = null)
+        {
+            using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
+            using (PrincipalSearcher searcher = new PrincipalSearcher(domainEntry, additionalPropertyNames))
+            {
+                return searcher.FindPrincipals(ldapFilter);
+            }
         }
 
         protected virtual IEnumerable<string> GetGroupMemberAccountNames(string groupName)
