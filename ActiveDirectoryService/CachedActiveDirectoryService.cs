@@ -31,10 +31,10 @@ namespace Affecto.ActiveDirectoryService
             this.cacheDuration = cacheDuration;
         }
 
-        public override IPrincipal GetUser(string userName, ICollection<string> additionalPropertyNames = null)
+        public override IPrincipal GetPrincipal(string accountName, ICollection<string> additionalPropertyNames = null)
         {
-            string cacheKey = CreateCacheKey(GetUserKey, userName, FormatAdditionalPropertyNames(additionalPropertyNames));
-            return GetCachedValue(GetUserKey, cacheKey, () => base.GetUser(userName, additionalPropertyNames));
+            string cacheKey = CreateCacheKey(GetUserKey, accountName, FormatAdditionalPropertyNames(additionalPropertyNames));
+            return GetCachedValue(GetUserKey, cacheKey, () => base.GetPrincipal(accountName, additionalPropertyNames));
         }
 
         public override IEnumerable<IPrincipal> GetGroupMembers(string groupName, bool recursive, ICollection<string> additionalPropertyNames = null)

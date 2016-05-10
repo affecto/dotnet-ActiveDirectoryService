@@ -19,19 +19,19 @@ namespace Affecto.ActiveDirectoryService
             this.domainPath = domainPath;
         }
 
-        public virtual IPrincipal GetUser(string userName, ICollection<string> additionalPropertyNames = null)
+        public virtual IPrincipal GetPrincipal(string accountName, ICollection<string> additionalPropertyNames = null)
         {
             using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
             using (PrincipalSearcher searcher = new PrincipalSearcher(domainEntry, additionalPropertyNames))
             {
-                return searcher.FindPrincipal(userName);
+                return searcher.FindPrincipal(accountName);
             }
         }
 
-        public bool IsGroupMember(string userName, string groupName)
+        public bool IsGroupMember(string accountName, string groupName)
         {
-            return !string.IsNullOrWhiteSpace(userName)
-                && GetGroupMemberAccountNames(groupName).Any(o => o.Equals(userName, StringComparison.OrdinalIgnoreCase));
+            return !string.IsNullOrWhiteSpace(accountName)
+                && GetGroupMemberAccountNames(groupName).Any(o => o.Equals(accountName, StringComparison.OrdinalIgnoreCase));
         }
 
         public virtual IEnumerable<IPrincipal> GetGroupMembers(string groupName, bool recursive, ICollection<string> additionalPropertyNames = null)
