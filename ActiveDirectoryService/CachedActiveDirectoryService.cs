@@ -7,7 +7,8 @@ namespace Affecto.ActiveDirectoryService
     internal class CachedActiveDirectoryService : ActiveDirectoryService
     {
         private const string CacheName = "Affecto.ActiveDirectoryService";
-        private const string GetUserKey = "GetUserKey";
+        private const string GetPrincipalByAccountNameKey = "GetPrincipalByAccountNameKey";
+        private const string GetPrincipalByNativeGuidKey = "GetPrincipalByNativeGuidKey";
         private const string GetGroupMembersKey = "GetGroupMembers";
         private const string GetGroupMemberAccountNamesKey = "GetGroupMemberAccountNames";
         private const string SearchPrincipalsKey = "SearchPrincipals";
@@ -16,7 +17,8 @@ namespace Affecto.ActiveDirectoryService
         private static readonly MemoryCache Cache = new MemoryCache(CacheName);
         private static readonly Dictionary<string, object> Locks = new Dictionary<string, object>
         {
-            { GetUserKey, new object() },
+            { GetPrincipalByAccountNameKey, new object() },
+            { GetPrincipalByNativeGuidKey, new object() },
             { GetGroupMembersKey, new object() },
             { GetGroupMemberAccountNamesKey, new object() },
             { SearchPrincipalsKey, new object() },
@@ -33,8 +35,14 @@ namespace Affecto.ActiveDirectoryService
 
         public override IPrincipal GetPrincipal(string accountName, ICollection<string> additionalPropertyNames = null)
         {
-            string cacheKey = CreateCacheKey(GetUserKey, accountName, FormatAdditionalPropertyNames(additionalPropertyNames));
-            return GetCachedValue(GetUserKey, cacheKey, () => base.GetPrincipal(accountName, additionalPropertyNames));
+            string cacheKey = CreateCacheKey(GetPrincipalByAccountNameKey, accountName, FormatAdditionalPropertyNames(additionalPropertyNames));
+            return GetCachedValue(GetPrincipalByAccountNameKey, cacheKey, () => base.GetPrincipal(accountName, additionalPropertyNames));
+        }
+
+        public override IPrincipal GetPrincipal(Guid nativeGuid, ICollection<string> additionalPropertyNames = null)
+        {
+            string cacheKey = CreateCacheKey(GetPrincipalByNativeGuidKey, nativeGuid.ToString("D"), FormatAdditionalPropertyNames(additionalPropertyNames));
+            return GetCachedValue(GetPrincipalByNativeGuidKey, cacheKey, () => base.GetPrincipal(nativeGuid, additionalPropertyNames));
         }
 
         public override IEnumerable<IPrincipal> GetGroupMembers(string groupName, bool recursive, ICollection<string> additionalPropertyNames = null)

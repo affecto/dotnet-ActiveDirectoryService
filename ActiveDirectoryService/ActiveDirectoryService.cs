@@ -28,23 +28,34 @@ namespace Affecto.ActiveDirectoryService
             }
         }
 
+        public virtual IPrincipal GetPrincipal(Guid nativeGuid, ICollection<string> additionalPropertyNames = null)
+        {
+            const string guidFilterFormat = "{0}/<GUID={1}>";
+            string path = string.Format(guidFilterFormat, domainPath.GetPathWithProtocol(), nativeGuid.ToString("N"));
+
+            using (DirectoryEntry domainEntry = new DirectoryEntry(path))
+            {
+                return Principal.FromDirectoryEntry(domainEntry, additionalPropertyNames);
+            }
+        }
+
         public bool IsGroupMember(string accountName, string groupName)
         {
             return !string.IsNullOrWhiteSpace(accountName)
-                && GetGroupMemberAccountNames(groupName).Any(o => o.Equals(accountName, StringComparison.OrdinalIgnoreCase));
+                && GetGroupMemberAccountNames(groupName).Any(member => member.Equals(accountName, StringComparison.OrdinalIgnoreCase));
         }
 
         public virtual IEnumerable<IPrincipal> GetGroupMembers(string groupName, bool recursive, ICollection<string> additionalPropertyNames = null)
         {
             List<IPrincipal> result = new List<IPrincipal>();
+
             using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
+            using (PrincipalSearcher principalSearcher = new PrincipalSearcher(domainEntry))
             {
-                using (PrincipalSearcher principalSearcher = new PrincipalSearcher(domainEntry))
-                {
-                    Principal groupPrincipal = principalSearcher.FindPrincipal(groupName);
-                    result.AddRange(ResolveMembers(groupPrincipal, recursive, additionalPropertyNames));
-                }
+                Principal groupPrincipal = principalSearcher.FindPrincipal(groupName);
+                result.AddRange(ResolveMembers(groupPrincipal, recursive, additionalPropertyNames));
             }
+
             return result;
         }
 
@@ -59,14 +70,15 @@ namespace Affecto.ActiveDirectoryService
 
         protected virtual IEnumerable<string> GetGroupMemberAccountNames(string groupName)
         {
-            using (var ctx = new PrincipalContext(ContextType.Domain, domainPath.GetPathWithoutProtocol()))
-            using (var group = GroupPrincipal.FindByIdentity(ctx, groupName))
+            using (var context = new PrincipalContext(ContextType.Domain, domainPath.GetPathWithoutProtocol()))
+            using (var group = GroupPrincipal.FindByIdentity(context, groupName))
             {
                 if (group != null)
                 {
-                    return group.GetMembers(true).Select(o => o.SamAccountName).ToList();
+                    return group.GetMembers(true).Select(member => member.SamAccountName).ToList();
                 }
             }
+
             return Enumerable.Empty<string>();
         }
 
