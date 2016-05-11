@@ -8,7 +8,10 @@
     <projectUrl>https://github.com/affecto/dotnet-ActiveDirectoryService</projectUrl>
     <tags>affecto active directory ad activedirectory wrapper</tags>
     <releaseNotes>
-      Added a method for searching principals using an LDAP query.
+      Raised to .NET Framework 4.5.2. 
+      Added a method for getting principal by its native GUID. 
+      Added a method for getting group members by group native GUID. 
+      Renamed methods and properties to make them more consistent.
     </releaseNotes>
   </metadata>
 </package>

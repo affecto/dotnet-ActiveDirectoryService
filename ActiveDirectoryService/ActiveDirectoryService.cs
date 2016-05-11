@@ -28,24 +28,13 @@ namespace Affecto.ActiveDirectoryService
             }
         }
 
-        public virtual IPrincipal GetPrincipal(Guid nativeGuid, ICollection<string> additionalPropertyNames = null)
-        {
-            const string guidFilterFormat = "{0}/<GUID={1}>";
-            string path = string.Format(guidFilterFormat, domainPath.GetPathWithProtocol(), nativeGuid.ToString("N"));
-
-            using (DirectoryEntry domainEntry = new DirectoryEntry(path))
-            {
-                return Principal.FromDirectoryEntry(domainEntry, additionalPropertyNames);
-            }
-        }
-
         public bool IsGroupMember(string accountName, string groupName)
         {
             return !string.IsNullOrWhiteSpace(accountName)
                 && GetGroupMemberAccountNames(groupName).Any(member => member.Equals(accountName, StringComparison.OrdinalIgnoreCase));
         }
 
-        public virtual IEnumerable<IPrincipal> GetGroupMembers(string groupName, bool recursive, ICollection<string> additionalPropertyNames = null)
+        public virtual IReadOnlyCollection<IPrincipal> GetGroupMembers(string groupName, bool recursive, ICollection<string> additionalPropertyNames = null)
         {
             List<IPrincipal> result = new List<IPrincipal>();
 
@@ -59,13 +48,24 @@ namespace Affecto.ActiveDirectoryService
             return result;
         }
 
-        public virtual IEnumerable<IPrincipal> SearchPrincipals(string ldapFilter, ICollection<string> additionalPropertyNames = null)
+        public virtual IReadOnlyCollection<IPrincipal> GetGroupMembers(Guid nativeGuid, bool recursive, ICollection<string> additionalPropertyNames = null)
+        {
+            Principal principal = GetPrincipalInternal(nativeGuid);
+            return ResolveMembers(principal, recursive, additionalPropertyNames);
+        }
+
+        public virtual IReadOnlyCollection<IPrincipal> SearchPrincipals(string ldapFilter, ICollection<string> additionalPropertyNames = null)
         {
             using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
             using (PrincipalSearcher searcher = new PrincipalSearcher(domainEntry, additionalPropertyNames))
             {
                 return searcher.FindPrincipals(ldapFilter);
             }
+        }
+
+        public IPrincipal GetPrincipal(Guid nativeGuid, ICollection<string> additionalPropertyNames = null)
+        {
+            return GetPrincipalInternal(nativeGuid, additionalPropertyNames);
         }
 
         protected virtual IEnumerable<string> GetGroupMemberAccountNames(string groupName)
@@ -82,11 +82,11 @@ namespace Affecto.ActiveDirectoryService
             return Enumerable.Empty<string>();
         }
 
-        protected virtual IEnumerable<IPrincipal> ResolveMembers(Principal parent, bool isRecursive, ICollection<string> additionalPropertyNames)
+        protected virtual IReadOnlyCollection<IPrincipal> ResolveMembers(Principal parent, bool isRecursive, ICollection<string> additionalPropertyNames)
         {
             if (!parent.IsGroup)
             {
-                return Enumerable.Empty<IPrincipal>();
+                return new IPrincipal[0];
             }
 
             var results = new List<IPrincipal>();
@@ -110,6 +110,22 @@ namespace Affecto.ActiveDirectoryService
             }
 
             return results;
+        }
+
+        protected virtual Principal GetPrincipalInternal(Guid nativeGuid, ICollection<string> additionalPropertyNames = null)
+        {
+            using (DirectoryEntry domainEntry = GetDirectoryEntryByNativeGuid(nativeGuid))
+            {
+                return Principal.FromDirectoryEntry(domainEntry, additionalPropertyNames);
+            }
+        }
+
+        protected DirectoryEntry GetDirectoryEntryByNativeGuid(Guid nativeGuid)
+        {
+            const string guidFilterFormat = "{0}/<GUID={1}>";
+            string path = string.Format(guidFilterFormat, domainPath.GetPathWithProtocol(), nativeGuid.ToString("N"));
+
+            return new DirectoryEntry(path);
         }
     }
 }
