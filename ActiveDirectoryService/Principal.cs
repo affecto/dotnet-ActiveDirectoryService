@@ -8,7 +8,7 @@ namespace Affecto.ActiveDirectoryService
     internal class Principal : IPrincipal
     {
         public string DomainPath { get; private set; }
-        public string Id {get; private set;}
+        public string AccountName {get; private set;}
         public string DisplayName { get; private set; }
         public Guid NativeGuid { get; private set; }
         public bool IsGroup { get; private set; }
@@ -32,13 +32,13 @@ namespace Affecto.ActiveDirectoryService
 
             var principal = new Principal
             {
-                Id = directoryEntry.Properties[ActiveDirectoryProperties.AccountName].Value.ToString(),
+                AccountName = directoryEntry.Properties[ActiveDirectoryProperties.AccountName].Value.ToString(),
                 NativeGuid = new Guid(directoryEntry.NativeGuid),
                 DomainPath = directoryEntry.Path,
                 IsGroup = directoryEntry.SchemaClassName == ActiveDirectoryProperties.AccountGroup,
             };
 
-            principal.DisplayName = GetDisplayName(directoryEntry) ?? principal.Id;
+            principal.DisplayName = GetDisplayName(directoryEntry) ?? principal.AccountName;
             principal.AdditionalProperties = GetAdditionalProperties(directoryEntry, additionalPropertyNames);
             principal.ChildDomainPaths = GetChildDomainPaths(directoryEntry);
 
