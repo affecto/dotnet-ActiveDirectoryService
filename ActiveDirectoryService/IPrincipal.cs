@@ -5,7 +5,7 @@ namespace Affecto.ActiveDirectoryService
 {
     public interface IPrincipal
     {
-        string Id { get; }
+        string AccountName { get; }
         string DisplayName { get; }
         Guid NativeGuid { get; }
         string DomainPath { get; }

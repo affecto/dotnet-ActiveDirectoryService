@@ -47,7 +47,7 @@ namespace Affecto.ActiveDirectoryService
             return principal;
         }
 
-        public IEnumerable<Principal> FindPrincipals(string ldapFilter)
+        public IReadOnlyCollection<Principal> FindPrincipals(string ldapFilter)
         {
             return FindAllPrincipals(ldapFilter);
         }
