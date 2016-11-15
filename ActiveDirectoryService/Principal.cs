@@ -93,11 +93,14 @@ namespace Affecto.ActiveDirectoryService
             return memberPaths;
         }
 
-        private static bool IsActiveUser(DirectoryEntry de)
+        private static bool IsActiveUser(DirectoryEntry adUser)
         {
-            if (de.NativeGuid == null) return false;
+            if (adUser.NativeGuid == null)
+            {
+                return false;
+            }
 
-            int flags = (int)de.Properties["userAccountControl"].Value;
+            int flags = (int)adUser.Properties[ActiveDirectoryProperties.UserAccountControl].Value;
 
             return !Convert.ToBoolean(flags & 0x0002);
         }
