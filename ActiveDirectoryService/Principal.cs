@@ -12,6 +12,7 @@ namespace Affecto.ActiveDirectoryService
         public string DisplayName { get; private set; }
         public Guid NativeGuid { get; private set; }
         public bool IsGroup { get; private set; }
+        public bool IsActive { get; private set; }
         public IDictionary<string, object> AdditionalProperties { get; private set; }
         internal IEnumerable<string> ChildDomainPaths { get; private set; }
 
@@ -30,12 +31,14 @@ namespace Affecto.ActiveDirectoryService
                 throw new ActiveDirectoryException("Account name property not found in active directory entry.");
             }
 
+            bool isGroup = directoryEntry.SchemaClassName == ActiveDirectoryProperties.AccountGroup;
             var principal = new Principal
             {
                 AccountName = directoryEntry.Properties[ActiveDirectoryProperties.AccountName].Value.ToString(),
                 NativeGuid = new Guid(directoryEntry.NativeGuid),
                 DomainPath = directoryEntry.Path,
-                IsGroup = directoryEntry.SchemaClassName == ActiveDirectoryProperties.AccountGroup,
+                IsGroup = isGroup,
+                IsActive = isGroup || IsActiveUser(directoryEntry)
             };
 
             principal.DisplayName = GetDisplayName(directoryEntry) ?? principal.AccountName;
@@ -88,6 +91,18 @@ namespace Affecto.ActiveDirectoryService
             }
 
             return memberPaths;
+        }
+
+        private static bool IsActiveUser(DirectoryEntry adUser)
+        {
+            if (adUser.NativeGuid == null)
+            {
+                return false;
+            }
+
+            int flags = (int)adUser.Properties[ActiveDirectoryProperties.UserAccountControl].Value;
+
+            return !Convert.ToBoolean(flags & 0x0002);
         }
     }
 }

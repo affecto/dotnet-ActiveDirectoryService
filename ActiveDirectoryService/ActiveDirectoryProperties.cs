@@ -7,5 +7,7 @@
         public const string ObjectGuid = "objectGuid";
         public const string AccountGroup = "group";
         public const string Member = "Member";
+        public const string UserAccountControl = "userAccountControl";
+
     }
 }

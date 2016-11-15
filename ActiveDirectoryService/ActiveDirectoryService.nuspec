@@ -8,10 +8,7 @@
     <projectUrl>https://github.com/affecto/dotnet-ActiveDirectoryService</projectUrl>
     <tags>affecto active directory ad activedirectory wrapper</tags>
     <releaseNotes>
-Raised to .NET Framework 4.5.2. 
-Added a method for getting principal by its native GUID. 
-Added a method for getting group members by group native GUID. 
-Renamed methods and properties to make them more consistent.
+      Added new property IsActive to Principal.
     </releaseNotes>
   </metadata>
 </package>
