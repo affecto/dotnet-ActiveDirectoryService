@@ -60,6 +60,7 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="AccountNameComparerTests.cs" />
     <Compile Include="ActiveDirectoryServiceTests.cs" />
     <Compile Include="AdDomainPathHandlerTests.cs" />
     <Compile Include="PrincipalSearcherTests.cs" />

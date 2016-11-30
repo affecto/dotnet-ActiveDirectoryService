@@ -49,6 +49,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AccountNameComparer.cs" />
     <Compile Include="ActiveDirectoryException.cs" />
     <Compile Include="ActiveDirectoryProperties.cs" />
     <Compile Include="ActiveDirectoryService.cs" />

@@ -7,6 +7,6 @@
     <description>$description$</description>
     <projectUrl>https://github.com/affecto/dotnet-ActiveDirectoryService</projectUrl>
     <tags>affecto active directory ad activedirectory wrapper</tags>
-    <releaseNotes>Added methods for getting all groups a user belongs to.</releaseNotes>
+    <releaseNotes>Added methods for getting all groups a user belongs to. Added AccountNameComparer class.</releaseNotes>
   </metadata>
 </package>
