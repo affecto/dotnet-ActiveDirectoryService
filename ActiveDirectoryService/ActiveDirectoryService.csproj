@@ -56,6 +56,7 @@
     <Compile Include="AdDomainPathHandler.cs" />
     <Compile Include="CachedActiveDirectoryService.cs" />
     <Compile Include="DomainPath.cs" />
+    <Compile Include="GroupPrincipal.cs" />
     <Compile Include="IActiveDirectoryService.cs" />
     <Compile Include="IPrincipal.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -63,6 +64,7 @@
     <Compile Include="PrincipalSearcher.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="UserPrincipal.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ActiveDirectoryService.nuspec" />

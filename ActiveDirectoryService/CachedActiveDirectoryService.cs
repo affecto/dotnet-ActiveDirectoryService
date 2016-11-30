@@ -7,24 +7,28 @@ namespace Affecto.ActiveDirectoryService
     internal class CachedActiveDirectoryService : ActiveDirectoryService
     {
         private const string CacheName = "Affecto.ActiveDirectoryService";
-        private const string GetPrincipalByAccountNameKey = "GetPrincipalByAccountName";
-        private const string GetPrincipalByNativeGuidKey = "GetPrincipalByNativeGuid";
+        private const string GetPrincipalInternalByAccountNameKey = "GetPrincipalInternalByAccountNameKey";
+        private const string GetPrincipalInternalByNativeGuidKey = "GetPrincipalInternalByNativeGuidKey";
         private const string GetGroupMembersByGroupNameKey = "GetGroupMembersByGroupName";
         private const string GetGroupMembersByNativeGuidKey = "GetGroupMembersByNativeGuid";
         private const string GetGroupMemberAccountNamesKey = "GetGroupMemberAccountNames";
         private const string SearchPrincipalsKey = "SearchPrincipals";
         private const string ResolveMembersKey = "ResolveMembers";
+        private const string GetGroupsWhereUserIsMemberByNativeGuidKey = "GetGroupsWhereUserIsMemberByNativeGuid";
+        private const string GetGroupsWhereUserIsMemberInternalKey = "GetGroupsWhereUserIsMemberInternal";
 
         private static readonly MemoryCache Cache = new MemoryCache(CacheName);
         private static readonly Dictionary<string, object> Locks = new Dictionary<string, object>
         {
-            { GetPrincipalByAccountNameKey, new object() },
-            { GetPrincipalByNativeGuidKey, new object() },
+            { GetPrincipalInternalByAccountNameKey, new object() },
+            { GetPrincipalInternalByNativeGuidKey, new object() },
             { GetGroupMembersByGroupNameKey, new object() },
             { GetGroupMembersByNativeGuidKey, new object() },
             { GetGroupMemberAccountNamesKey, new object() },
             { SearchPrincipalsKey, new object() },
-            { ResolveMembersKey, new object() }
+            { ResolveMembersKey, new object() },
+            { GetGroupsWhereUserIsMemberByNativeGuidKey, new object() },
+            { GetGroupsWhereUserIsMemberInternalKey, new object() }
         };
 
         private readonly TimeSpan cacheDuration;
@@ -33,12 +37,6 @@ namespace Affecto.ActiveDirectoryService
             : base(domainPath)
         {
             this.cacheDuration = cacheDuration;
-        }
-
-        public override IPrincipal GetPrincipal(string accountName, ICollection<string> additionalPropertyNames = null)
-        {
-            string cacheKey = CreateCacheKey(GetPrincipalByAccountNameKey, accountName, FormatAdditionalPropertyNames(additionalPropertyNames));
-            return GetCachedValue(GetPrincipalByAccountNameKey, cacheKey, () => base.GetPrincipal(accountName, additionalPropertyNames));
         }
 
         public override IReadOnlyCollection<IPrincipal> GetGroupMembers(string groupName, bool recursive, ICollection<string> additionalPropertyNames = null)
@@ -59,10 +57,29 @@ namespace Affecto.ActiveDirectoryService
             return GetCachedValue(SearchPrincipalsKey, cacheKey, () => base.SearchPrincipals(ldapFilter, additionalPropertyNames));
         }
 
-        protected override Principal GetPrincipalInternal(Guid nativeGuid, ICollection<string> additionalPropertyNames = null)
+        public override IReadOnlyCollection<IPrincipal> GetGroupsWhereUserIsMember(Guid userNativeGuid)
         {
-            string cacheKey = CreateCacheKey(GetPrincipalByNativeGuidKey, nativeGuid.ToString("N"), FormatAdditionalPropertyNames(additionalPropertyNames));
-            return GetCachedValue(GetPrincipalByNativeGuidKey, cacheKey, () => base.GetPrincipalInternal(nativeGuid, additionalPropertyNames));
+            string cacheKey = CreateCacheKey(GetGroupsWhereUserIsMemberByNativeGuidKey, userNativeGuid.ToString("N"));
+            return GetCachedValue(GetGroupsWhereUserIsMemberByNativeGuidKey, cacheKey, () => base.GetGroupsWhereUserIsMember(userNativeGuid));
+        }
+
+        protected override IReadOnlyCollection<IPrincipal> GetGroupsWhereUserIsMemberInternal(UserPrincipal principal)
+        {
+            string cacheKey = CreateCacheKey(GetGroupsWhereUserIsMemberInternalKey, principal.NativeGuid.ToString("N"));
+            return GetCachedValue(GetGroupsWhereUserIsMemberInternalKey, cacheKey, () => base.GetGroupsWhereUserIsMemberInternal(principal));
+        }
+
+        protected override T GetPrincipalInternal<T>(Guid nativeGuid, ICollection<string> additionalPropertyNames = null)
+        {
+            string cacheKey = CreateCacheKey(GetPrincipalInternalByNativeGuidKey, typeof(T).FullName, nativeGuid.ToString("N"),
+                FormatAdditionalPropertyNames(additionalPropertyNames));
+            return GetCachedValue(GetPrincipalInternalByNativeGuidKey, cacheKey, () => base.GetPrincipalInternal<T>(nativeGuid, additionalPropertyNames));
+        }
+
+        protected override T GetPrincipalInternal<T>(string accountName, ICollection<string> additionalPropertyNames = null)
+        {
+            string cacheKey = CreateCacheKey(GetPrincipalInternalByAccountNameKey, accountName, FormatAdditionalPropertyNames(additionalPropertyNames));
+            return GetCachedValue(GetPrincipalInternalByAccountNameKey, cacheKey, () => base.GetPrincipalInternal<T>(accountName, additionalPropertyNames));
         }
 
         protected override IEnumerable<string> GetGroupMemberAccountNames(string groupName)
@@ -71,7 +88,7 @@ namespace Affecto.ActiveDirectoryService
             return GetCachedValue(GetGroupMemberAccountNamesKey, cacheKey, () => base.GetGroupMemberAccountNames(groupName));
         }
 
-        protected override IReadOnlyCollection<IPrincipal> ResolveMembers(Principal parent, bool isRecursive, ICollection<string> additionalPropertyNames)
+        protected override IReadOnlyCollection<IPrincipal> ResolveMembers(GroupPrincipal parent, bool isRecursive, ICollection<string> additionalPropertyNames)
         {
             string cacheKey = CreateCacheKey(ResolveMembersKey, parent.DomainPath, isRecursive.ToString(), FormatAdditionalPropertyNames(additionalPropertyNames));
             return GetCachedValue(ResolveMembersKey, cacheKey, () => base.ResolveMembers(parent, isRecursive, additionalPropertyNames));

@@ -1,26 +1,33 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.DirectoryServices;
 
 namespace Affecto.ActiveDirectoryService
 {
-    internal class Principal : IPrincipal
+    internal abstract class Principal : IPrincipal
     {
+        protected readonly DomainPath domainPath;
+
+        public abstract bool IsGroup { get; }
+        public abstract bool IsActive { get; }
         public string DomainPath { get; private set; }
         public string AccountName {get; private set;}
         public string DisplayName { get; private set; }
         public Guid NativeGuid { get; private set; }
-        public bool IsGroup { get; private set; }
-        public bool IsActive { get; private set; }
         public IDictionary<string, object> AdditionalProperties { get; private set; }
-        internal IEnumerable<string> ChildDomainPaths { get; private set; }
 
-        private Principal()
+        protected Principal(DomainPath domainPath, DirectoryEntry directoryEntry, ICollection<string> additionalPropertyNames)
         {
+            this.domainPath = domainPath;
+
+            AccountName = directoryEntry.Properties[ActiveDirectoryProperties.AccountName].Value.ToString();
+            NativeGuid = new Guid(directoryEntry.NativeGuid);
+            DomainPath = directoryEntry.Path;
+            DisplayName = GetDisplayName(directoryEntry) ?? AccountName;
+            AdditionalProperties = GetAdditionalProperties(directoryEntry, additionalPropertyNames);
         }
 
-        public static Principal FromDirectoryEntry(DirectoryEntry directoryEntry, ICollection<string> additionalPropertyNames = null)
+        public static Principal FromDirectoryEntry(DomainPath domainPath, DirectoryEntry directoryEntry, ICollection<string> additionalPropertyNames = null)
         {
             if (directoryEntry == null)
             {
@@ -32,20 +39,30 @@ namespace Affecto.ActiveDirectoryService
             }
 
             bool isGroup = directoryEntry.SchemaClassName == ActiveDirectoryProperties.AccountGroup;
-            var principal = new Principal
+
+            if (isGroup)
             {
-                AccountName = directoryEntry.Properties[ActiveDirectoryProperties.AccountName].Value.ToString(),
-                NativeGuid = new Guid(directoryEntry.NativeGuid),
-                DomainPath = directoryEntry.Path,
-                IsGroup = isGroup,
-                IsActive = isGroup || IsActiveUser(directoryEntry)
-            };
+                return new GroupPrincipal(domainPath, directoryEntry, additionalPropertyNames);
+            }
 
-            principal.DisplayName = GetDisplayName(directoryEntry) ?? principal.AccountName;
-            principal.AdditionalProperties = GetAdditionalProperties(directoryEntry, additionalPropertyNames);
-            principal.ChildDomainPaths = GetChildDomainPaths(directoryEntry);
+            return new UserPrincipal(domainPath, directoryEntry, additionalPropertyNames);
+        }
 
-            return principal;
+        public static T FromDirectoryEntry<T>(DomainPath domainPath, DirectoryEntry directoryEntry, ICollection<string> additionalPropertyNames = null) where T : Principal
+        {
+            Principal principal = FromDirectoryEntry(domainPath, directoryEntry, additionalPropertyNames);
+
+            if (principal is T)
+            {
+                return (T) principal;
+            }
+
+            throw new InvalidCastException(string.Format("Could not cast principal '{0}' to type '{1}'.", principal.AccountName, typeof(T).FullName));
+        }
+
+        public override string ToString()
+        {
+            return string.Format("{0} - {1}", GetType().FullName, AccountName);
         }
 
         private static string GetDisplayName(DirectoryEntry directoryEntry)
@@ -71,38 +88,6 @@ namespace Affecto.ActiveDirectoryService
             }
 
             return results;
-        }
-
-        private static List<string> GetChildDomainPaths(DirectoryEntry directoryEntry)
-        {
-            var memberPaths = new List<string>();
-            PropertyValueCollection memberValueCollection = directoryEntry.Properties[ActiveDirectoryProperties.Member];
-
-            if (memberValueCollection != null)
-            {
-                IEnumerator memberEnumerator = memberValueCollection.GetEnumerator();
-                while (memberEnumerator.MoveNext())
-                {
-                    if (memberEnumerator.Current != null)
-                    {
-                        memberPaths.Add(AdDomainPathHandler.Escape(memberEnumerator.Current.ToString()));
-                    }
-                }
-            }
-
-            return memberPaths;
-        }
-
-        private static bool IsActiveUser(DirectoryEntry adUser)
-        {
-            if (adUser.NativeGuid == null)
-            {
-                return false;
-            }
-
-            int flags = (int)adUser.Properties[ActiveDirectoryProperties.UserAccountControl].Value;
-
-            return !Convert.ToBoolean(flags & 0x0002);
         }
     }
 }

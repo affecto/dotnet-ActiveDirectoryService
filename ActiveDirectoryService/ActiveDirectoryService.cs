@@ -19,13 +19,14 @@ namespace Affecto.ActiveDirectoryService
             this.domainPath = domainPath;
         }
 
-        public virtual IPrincipal GetPrincipal(string accountName, ICollection<string> additionalPropertyNames = null)
+        public IPrincipal GetPrincipal(string accountName, ICollection<string> additionalPropertyNames = null)
         {
-            using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
-            using (PrincipalSearcher searcher = new PrincipalSearcher(domainEntry, additionalPropertyNames))
-            {
-                return searcher.FindPrincipal(accountName);
-            }
+            return GetPrincipalInternal<Principal>(accountName, additionalPropertyNames);
+        }
+
+        public IPrincipal GetPrincipal(Guid nativeGuid, ICollection<string> additionalPropertyNames = null)
+        {
+            return GetPrincipalInternal<Principal>(nativeGuid, additionalPropertyNames);
         }
 
         public bool IsGroupMember(string accountName, string groupName)
@@ -39,9 +40,9 @@ namespace Affecto.ActiveDirectoryService
             List<IPrincipal> result = new List<IPrincipal>();
 
             using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
-            using (PrincipalSearcher principalSearcher = new PrincipalSearcher(domainEntry))
+            using (PrincipalSearcher principalSearcher = new PrincipalSearcher(domainPath, domainEntry))
             {
-                Principal groupPrincipal = principalSearcher.FindPrincipal(groupName);
+                GroupPrincipal groupPrincipal = principalSearcher.FindPrincipal<GroupPrincipal>(groupName);
                 result.AddRange(ResolveMembers(groupPrincipal, recursive, additionalPropertyNames));
             }
 
@@ -50,28 +51,59 @@ namespace Affecto.ActiveDirectoryService
 
         public virtual IReadOnlyCollection<IPrincipal> GetGroupMembers(Guid nativeGuid, bool recursive, ICollection<string> additionalPropertyNames = null)
         {
-            Principal principal = GetPrincipalInternal(nativeGuid);
+            GroupPrincipal principal = GetPrincipalInternal<GroupPrincipal>(nativeGuid);
             return ResolveMembers(principal, recursive, additionalPropertyNames);
         }
 
         public virtual IReadOnlyCollection<IPrincipal> SearchPrincipals(string ldapFilter, ICollection<string> additionalPropertyNames = null)
         {
             using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
-            using (PrincipalSearcher searcher = new PrincipalSearcher(domainEntry, additionalPropertyNames))
+            using (PrincipalSearcher searcher = new PrincipalSearcher(domainPath, domainEntry, additionalPropertyNames))
             {
-                return searcher.FindPrincipals(ldapFilter);
+                return searcher.FindPrincipals<Principal>(ldapFilter);
             }
         }
 
-        public IPrincipal GetPrincipal(Guid nativeGuid, ICollection<string> additionalPropertyNames = null)
+        public virtual IReadOnlyCollection<IPrincipal> GetGroupsWhereUserIsMember(Guid userNativeGuid)
         {
-            return GetPrincipalInternal(nativeGuid, additionalPropertyNames);
+            using (DirectoryEntry domainEntry = GetDirectoryEntryByNativeGuid(userNativeGuid))
+            {
+                UserPrincipal principal = Principal.FromDirectoryEntry<UserPrincipal>(domainPath, domainEntry);
+                return GetGroupsWhereUserIsMemberInternal(principal);
+            }
+        }
+
+        public IReadOnlyCollection<IPrincipal> GetGroupsWhereUserIsMember(string userAccountName)
+        {
+            UserPrincipal principal = GetPrincipalInternal<UserPrincipal>(userAccountName);
+            return GetGroupsWhereUserIsMemberInternal(principal);
+
+        }
+
+        protected virtual IReadOnlyCollection<IPrincipal> GetGroupsWhereUserIsMemberInternal(UserPrincipal principal)
+        {
+            var groups = new List<IPrincipal>();
+
+            foreach (string parentDomainPath in principal.ParentDomainPaths)
+            {
+                using (var entry = new DirectoryEntry(new DomainPath(parentDomainPath).GetPathWithProtocol()))
+                {
+                    groups.Add(Principal.FromDirectoryEntry(domainPath, entry));
+                }
+            }
+
+            if (!groups.Select(p => p.AccountName).Any(accountName => accountName.ToLower().Contains("domain users")))
+            {
+                groups.Add(GetPrincipalInternal<GroupPrincipal>("Domain users"));
+            }
+
+            return groups;
         }
 
         protected virtual IEnumerable<string> GetGroupMemberAccountNames(string groupName)
         {
             using (var context = new PrincipalContext(ContextType.Domain, domainPath.GetPathWithoutProtocol()))
-            using (var group = GroupPrincipal.FindByIdentity(context, groupName))
+            using (var group = System.DirectoryServices.AccountManagement.GroupPrincipal.FindByIdentity(context, groupName))
             {
                 if (group != null)
                 {
@@ -82,7 +114,7 @@ namespace Affecto.ActiveDirectoryService
             return Enumerable.Empty<string>();
         }
 
-        protected virtual IReadOnlyCollection<IPrincipal> ResolveMembers(Principal parent, bool isRecursive, ICollection<string> additionalPropertyNames)
+        protected virtual IReadOnlyCollection<IPrincipal> ResolveMembers(GroupPrincipal parent, bool isRecursive, ICollection<string> additionalPropertyNames)
         {
             if (!parent.IsGroup)
             {
@@ -98,11 +130,11 @@ namespace Affecto.ActiveDirectoryService
                 {
                     using (var childDirectoryEntry = new DirectoryEntry(fullChildDomainPath))
                     {
-                        Principal childPrincipal = Principal.FromDirectoryEntry(childDirectoryEntry, additionalPropertyNames);
+                        Principal childPrincipal = Principal.FromDirectoryEntry(domainPath, childDirectoryEntry, additionalPropertyNames);
                         results.Add(childPrincipal);
-                        if (isRecursive)
+                        if (isRecursive && childPrincipal.IsGroup)
                         {
-                            IEnumerable<IPrincipal> childPrincipalMembers = ResolveMembers(childPrincipal, true, additionalPropertyNames);
+                            IEnumerable<IPrincipal> childPrincipalMembers = ResolveMembers((GroupPrincipal) childPrincipal, true, additionalPropertyNames);
                             results.AddRange(childPrincipalMembers.Where(p => results.All(r => r.NativeGuid != p.NativeGuid)));
                         }
                     }
@@ -112,11 +144,20 @@ namespace Affecto.ActiveDirectoryService
             return results;
         }
 
-        protected virtual Principal GetPrincipalInternal(Guid nativeGuid, ICollection<string> additionalPropertyNames = null)
+        protected virtual T GetPrincipalInternal<T>(Guid nativeGuid, ICollection<string> additionalPropertyNames = null) where T : Principal
         {
             using (DirectoryEntry domainEntry = GetDirectoryEntryByNativeGuid(nativeGuid))
             {
-                return Principal.FromDirectoryEntry(domainEntry, additionalPropertyNames);
+                return Principal.FromDirectoryEntry<T>(domainPath, domainEntry, additionalPropertyNames);
+            }
+        }
+
+        protected virtual T GetPrincipalInternal<T>(string accountName, ICollection<string> additionalPropertyNames = null) where T : Principal
+        {
+            using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
+            using (PrincipalSearcher searcher = new PrincipalSearcher(domainPath, domainEntry, additionalPropertyNames))
+            {
+                return searcher.FindPrincipal<T>(accountName);
             }
         }
 

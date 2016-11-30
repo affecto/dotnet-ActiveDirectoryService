@@ -11,5 +11,7 @@ namespace Affecto.ActiveDirectoryService
         IReadOnlyCollection<IPrincipal> GetGroupMembers(string groupName, bool recursive, ICollection<string> additionalPropertyNames = null);
         IReadOnlyCollection<IPrincipal> GetGroupMembers(Guid nativeGuid, bool recursive, ICollection<string> additionalPropertyNames = null);
         IReadOnlyCollection<IPrincipal> SearchPrincipals(string ldapFilter, ICollection<string> additionalPropertyNames = null);
+        IReadOnlyCollection<IPrincipal> GetGroupsWhereUserIsMember(string userAccountName);
+        IReadOnlyCollection<IPrincipal> GetGroupsWhereUserIsMember(Guid userNativeGuid);
     }
 }
