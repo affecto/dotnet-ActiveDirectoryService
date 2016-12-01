@@ -10,12 +10,13 @@ namespace Affecto.ActiveDirectoryService.Tests
 
         private PrincipalSearcher sut;
         private DirectoryEntry searchRoot;
+        private DomainPath domainPath = new DomainPath("dom");
 
         [TestMethod]
         public void DisplayNameIsLoadedOnSearch()
         {
             using (searchRoot = new DirectoryEntry())
-            using (sut = new PrincipalSearcher(searchRoot))
+            using (sut = new PrincipalSearcher(domainPath, searchRoot))
             {
                 Assert.IsTrue(sut.PropertiesToLoad.Contains("displayName"));
             }
@@ -25,7 +26,7 @@ namespace Affecto.ActiveDirectoryService.Tests
         public void ObjectGuidIsLoadedOnSearch()
         {
             using (searchRoot = new DirectoryEntry())
-            using (sut = new PrincipalSearcher(searchRoot))
+            using (sut = new PrincipalSearcher(domainPath, searchRoot))
             {
                 Assert.IsTrue(sut.PropertiesToLoad.Contains("objectGuid"));
             }
@@ -35,7 +36,7 @@ namespace Affecto.ActiveDirectoryService.Tests
         public void MemberPropertyIsLoadedOnSearch()
         {
             using (searchRoot = new DirectoryEntry())
-            using (sut = new PrincipalSearcher(searchRoot))
+            using (sut = new PrincipalSearcher(domainPath, searchRoot))
             {
                 Assert.IsTrue(sut.PropertiesToLoad.Contains("Member"));
             }
@@ -47,7 +48,7 @@ namespace Affecto.ActiveDirectoryService.Tests
             var properties = new[] { "Prop1", "Prop2" };
             
             using (searchRoot = new DirectoryEntry())
-            using (sut = new PrincipalSearcher(searchRoot, properties))
+            using (sut = new PrincipalSearcher(domainPath, searchRoot, properties))
             {
                 Assert.IsTrue(sut.PropertiesToLoad.Contains("Prop1"));
                 Assert.IsTrue(sut.PropertiesToLoad.Contains("Prop2"));

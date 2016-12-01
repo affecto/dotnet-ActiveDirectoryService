@@ -7,16 +7,19 @@ namespace Affecto.ActiveDirectoryService
 {
     internal class PrincipalSearcher : DirectorySearcher
     {
+        private readonly DomainPath domainPath;
         private readonly ICollection<string> additionalPropertyNames;
 
-        public PrincipalSearcher(DirectoryEntry searchRoot, ICollection<string> additionalPropertyNames = null)
+        public PrincipalSearcher(DomainPath domainPath, DirectoryEntry searchRoot, ICollection<string> additionalPropertyNames = null)
             : base(searchRoot)
         {
+            this.domainPath = domainPath;
             this.additionalPropertyNames = additionalPropertyNames;
 
             PropertiesToLoad.Add(ActiveDirectoryProperties.ObjectGuid);
             PropertiesToLoad.Add(ActiveDirectoryProperties.DisplayName);
             PropertiesToLoad.Add(ActiveDirectoryProperties.Member);
+            PropertiesToLoad.Add(ActiveDirectoryProperties.MemberOf);
 
             if (additionalPropertyNames != null)
             {
@@ -27,7 +30,7 @@ namespace Affecto.ActiveDirectoryService
             }
         }
 
-        public Principal FindPrincipal(string principalAccountName)
+        public T FindPrincipal<T>(string principalAccountName) where T : Principal
         {
             if (string.IsNullOrWhiteSpace(principalAccountName))
             {
@@ -37,7 +40,7 @@ namespace Affecto.ActiveDirectoryService
             string userWithoutDomain = principalAccountName.Contains('\\') ? principalAccountName.Split('\\')[1] : principalAccountName;
             string filter = string.Format("({0}={1})", ActiveDirectoryProperties.AccountName, userWithoutDomain);
 
-            Principal principal = FindSinglePrincipal(filter);
+            T principal = FindSinglePrincipal<T>(filter);
 
             if (principal == null)
             {
@@ -47,12 +50,12 @@ namespace Affecto.ActiveDirectoryService
             return principal;
         }
 
-        public IReadOnlyCollection<Principal> FindPrincipals(string ldapFilter)
+        public IReadOnlyCollection<T> FindPrincipals<T>(string ldapFilter) where T : Principal
         {
-            return FindAllPrincipals(ldapFilter);
+            return FindAllPrincipals<T>(ldapFilter);
         }
 
-        protected Principal FindSinglePrincipal(string filter)
+        protected T FindSinglePrincipal<T>(string filter) where T : Principal
         {
             Filter = filter;
             SearchResult searchResult = FindOne();
@@ -62,22 +65,22 @@ namespace Affecto.ActiveDirectoryService
                 return null;
             }
 
-            return MapToPrincipal(searchResult);
+            return MapToPrincipal<T>(searchResult);
         }
 
-        protected List<Principal> FindAllPrincipals(string filter)
+        protected List<T> FindAllPrincipals<T>(string filter) where T : Principal
         {
             Filter = filter;
             SearchResultCollection searchResults = FindAll();
 
-            return searchResults.Cast<SearchResult>().Select(MapToPrincipal).ToList();
+            return searchResults.Cast<SearchResult>().Select(MapToPrincipal<T>).ToList();
         }
 
-        private Principal MapToPrincipal(SearchResult searchResult)
+        private T MapToPrincipal<T>(SearchResult searchResult) where T : Principal
         {
             using (DirectoryEntry directoryEntry = searchResult.GetDirectoryEntry())
             {
-                return Principal.FromDirectoryEntry(directoryEntry, additionalPropertyNames);
+                return Principal.FromDirectoryEntry<T>(domainPath, directoryEntry, additionalPropertyNames);
             }
         }
     }

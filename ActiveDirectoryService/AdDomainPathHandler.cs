@@ -18,9 +18,9 @@ namespace Affecto.ActiveDirectoryService
                 foreach (Match match in matches)
                 {
                     Capture capture = match.Captures[0];
-                    Group @group = match.Groups[1];
+                    Group group = match.Groups[1];
 
-                    if (@group.Length % 2 == 0)
+                    if (group.Length % 2 == 0)
                     {
                         string lettersBeforeCapture = adDisplayName.Substring(currentStringPosition, (capture.Index - currentStringPosition));
                         stringBuilder.Append(lettersBeforeCapture);
