@@ -10,6 +10,7 @@ namespace Affecto.ActiveDirectoryService
         Guid NativeGuid { get; }
         string DomainPath { get; }
         bool IsGroup { get; }
+        bool IsActive { get; }
         IDictionary<string, object> AdditionalProperties { get; }
     }
 }
