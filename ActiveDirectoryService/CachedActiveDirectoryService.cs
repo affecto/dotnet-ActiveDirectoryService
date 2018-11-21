@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.Caching;
+using System.Security.Principal;
 
 namespace Affecto.ActiveDirectoryService
 {
@@ -9,6 +10,7 @@ namespace Affecto.ActiveDirectoryService
         private const string CacheName = "Affecto.ActiveDirectoryService";
         private const string GetPrincipalInternalByAccountNameKey = "GetPrincipalInternalByAccountNameKey";
         private const string GetPrincipalInternalByNativeGuidKey = "GetPrincipalInternalByNativeGuidKey";
+        private const string GetPrincipalInternalBySid = "GetPrincipalInternalBySid";
         private const string GetGroupMembersByGroupNameKey = "GetGroupMembersByGroupName";
         private const string GetGroupMembersByNativeGuidKey = "GetGroupMembersByNativeGuid";
         private const string GetGroupMemberAccountNamesKey = "GetGroupMemberAccountNames";
@@ -22,6 +24,7 @@ namespace Affecto.ActiveDirectoryService
         {
             { GetPrincipalInternalByAccountNameKey, new object() },
             { GetPrincipalInternalByNativeGuidKey, new object() },
+            { GetPrincipalInternalBySid, new object() },
             { GetGroupMembersByGroupNameKey, new object() },
             { GetGroupMembersByNativeGuidKey, new object() },
             { GetGroupMemberAccountNamesKey, new object() },
@@ -80,6 +83,12 @@ namespace Affecto.ActiveDirectoryService
         {
             string cacheKey = CreateCacheKey(GetPrincipalInternalByAccountNameKey, accountName, FormatAdditionalPropertyNames(additionalPropertyNames));
             return GetCachedValue(GetPrincipalInternalByAccountNameKey, cacheKey, () => base.GetPrincipalInternal<T>(accountName, additionalPropertyNames));
+        }
+
+        protected override IPrincipal GetPrincipalInternal(SecurityIdentifier sid, ICollection<string> additionalPropertyNames)
+        {
+            string cacheKey = CreateCacheKey(GetPrincipalInternalBySid, sid.ToString(), FormatAdditionalPropertyNames(additionalPropertyNames));
+            return GetCachedValue(GetPrincipalInternalBySid, cacheKey, () => base.GetPrincipalInternal(sid, additionalPropertyNames));
         }
 
         protected override IEnumerable<string> GetGroupMemberAccountNames(string groupName)
