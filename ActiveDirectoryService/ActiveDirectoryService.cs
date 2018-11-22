@@ -11,7 +11,8 @@ namespace Affecto.ActiveDirectoryService
     internal class ActiveDirectoryService : IActiveDirectoryService
     {
         private readonly DomainPath domainPath;
-        private readonly Dictionary<string, int> prioritizedDomainPaths = new Dictionary<string, int>();
+        private readonly string defaultDomain;
+        private readonly PriorityList domainPathList = new PriorityList();
 
         public ActiveDirectoryService(DomainPath domainPath)
         {
@@ -20,12 +21,7 @@ namespace Affecto.ActiveDirectoryService
                 throw new ArgumentNullException("domainPath", "Domain path must be defined.");
             }
             this.domainPath = domainPath;
-        }
-
-        private string defaultDomain;
-        private string DefaultDomain
-        {
-            get { return defaultDomain ?? (defaultDomain = GetDefaultDomain()); }
+            defaultDomain = GetDefaultDomain();
         }
 
         public IPrincipal GetPrincipal(string accountName, ICollection<string> additionalPropertyNames = null)
@@ -135,7 +131,7 @@ namespace Affecto.ActiveDirectoryService
 
             foreach (string childDomainPath in parent.ChildDomainPaths)
             {
-                string fullChildDomainPath = GetDomainPathWithProtocol() + "/" + childDomainPath;
+                string fullChildDomainPath = GetDomainPath().GetPathWithProtocol() + "/" + childDomainPath;
                 if (!results.Any(user => user.DomainPath.Equals(fullChildDomainPath)))
                 {
                     using (var childDirectoryEntry = new DirectoryEntry(fullChildDomainPath))
@@ -175,7 +171,7 @@ namespace Affecto.ActiveDirectoryService
         protected virtual T GetPrincipalInternal<T>(string accountName, ICollection<string> additionalPropertyNames = null) where T : Principal
         {
             string domain = GetDomain(accountName);
-            string path = GetDomainPathWithProtocol(domain);
+            string path = GetDomainPath(domain).GetPathWithProtocol();
             using (DirectoryEntry domainEntry = new DirectoryEntry(path))
             using (PrincipalSearcher searcher = new PrincipalSearcher(domainPath, domainEntry, additionalPropertyNames))
             {
@@ -185,65 +181,56 @@ namespace Affecto.ActiveDirectoryService
 
         protected DirectoryEntry GetDirectoryEntryByNativeGuid(Guid nativeGuid)
         {
-            IEnumerable<string> domains = GetAllDomainsWithProtocol();
-            foreach (string path in domains)
+            return GetItem(path =>
             {
                 const string guidFilterFormat = "{0}/<GUID={1}>";
                 string pathWithGuid = string.Format(guidFilterFormat, path, nativeGuid.ToString("N"));
-                try
-                {
-                    if (DirectoryEntry.Exists(pathWithGuid))
-                    {
-                        prioritizedDomainPaths[path] = 1;
-                        return new DirectoryEntry(pathWithGuid);
-                    }
-                }
-                catch (COMException)
-                {
-                    if (!prioritizedDomainPaths.ContainsKey(path))
-                    {
-                        prioritizedDomainPaths[path] = 0;
-                    }
-                    prioritizedDomainPaths[path] -= 1;
-                }
-            }
-            return null; // Todo: Not found exception
+                return DirectoryEntry.Exists(pathWithGuid) ? new DirectoryEntry(pathWithGuid) : null;
+            });
         }
 
         protected virtual IPrincipal GetPrincipalInternal(SecurityIdentifier sid, ICollection<string> additionalPropertyNames)
+        {
+            return GetItem(path =>
+            {
+                using (DirectoryEntry entry = SearchMember(path, sid))
+                {
+                    if (entry != null)
+                    {
+                        return Principal.FromDirectoryEntry(new DomainPath(path), entry, additionalPropertyNames);
+                    }
+
+                    return null;
+                }
+            });
+        }
+
+        private T GetItem<T>(Func<string, T> resolver) where T : class
         {
             foreach (string path in GetAllDomainsWithProtocol())
             {
                 try
                 {
-                    using (DirectoryEntry entry = SearchMember(path, sid))
+                    var value = resolver.Invoke(path);
+                    if (value != null)
                     {
-                        if (entry != null)
-                        {
-                            Principal principal = Principal.FromDirectoryEntry(new DomainPath(path), entry, additionalPropertyNames);
-                            prioritizedDomainPaths[path] = 1;
-                            return principal;
-                        }
+                        domainPathList.Promote(path);
+                        return value;
                     }
                 }
                 catch (COMException)
                 {
-                    if (!prioritizedDomainPaths.ContainsKey(path))
-                    {
-                        prioritizedDomainPaths[path] = 0;
-                    }
-                    prioritizedDomainPaths[path] -= 1;
+                    domainPathList.Demote(path);
                 }
             }
-
-            return null; // Todo: Exception?
+            return null; // Todo: Not found exception
         }
-        
-        private string GetDomainPathWithProtocol(string domain = null)
+
+        private DomainPath GetDomainPath(string domain = null)
         {
-            if (string.IsNullOrEmpty(domain) || DefaultDomain.Equals(domain, StringComparison.CurrentCultureIgnoreCase))
+            if (string.IsNullOrEmpty(domain) || defaultDomain.Equals(domain, StringComparison.CurrentCultureIgnoreCase))
             {
-                return domainPath.GetPathWithProtocol();
+                return domainPath;
             }
 
             return ResolveDomainPath(domain);
@@ -261,29 +248,29 @@ namespace Affecto.ActiveDirectoryService
         {
             return accountName.Contains('\\') ? accountName.Split('\\')[0] : null;
         }
-
-        private string ResolveDomainPath(string domain)
+       
+        private DomainPath ResolveDomainPath(string domain)
         {
             string filter = string.Format("(flatName={0})", domain);
             string foreignDomain = ResolveForeignDomains(domainPath.GetPathWithProtocol(), filter, "name").First();
-            return new DomainPath(foreignDomain).GetPathWithProtocol();
+            return new DomainPath(foreignDomain);
         }
 
         private IEnumerable<string> GetAllDomainsWithProtocol()
         {
             string defaultDomainPath = domainPath.GetPathWithProtocol();
-            Dictionary<string, int> prioritizedPaths = new Dictionary<string, int>(prioritizedDomainPaths);
+            PriorityList clone = domainPathList.Clone();
 
             // Yield paths which have been verified to contain valid principals
-            foreach (string path in prioritizedPaths.Where(o => o.Value >= 0).Select(o => o.Key))
+            foreach (string path in clone.GetPromoted())
             {
                 yield return path;
             }
 
             // Yield default domain path
-            if (!prioritizedPaths.ContainsKey(defaultDomainPath))
+            if (!clone.ContainsKey(defaultDomainPath))
             {
-                prioritizedPaths[defaultDomainPath] = 1;
+                clone.Promote(defaultDomainPath);
                 yield return defaultDomainPath;
             }
 
@@ -292,24 +279,22 @@ namespace Affecto.ActiveDirectoryService
             List<string> domains = ResolveForeignDomains(defaultDomainPath, filter, "name").ToList();
             foreach (string path in domains.Select(o => new DomainPath(o).GetPathWithProtocol()))
             {
-                if (!prioritizedPaths.ContainsKey(path))
+                if (!clone.ContainsKey(path))
                 {
-                    prioritizedPaths[path] = 1;
+                    clone.Promote(path);
                     yield return path;
                 }
             }
 
             // Yield the rest of the paths
-            foreach (string path in prioritizedPaths.Where(o => o.Value < 0).OrderByDescending(o => o.Value).Select(o => o.Key))
+            foreach (string path in clone.GetDemoted())
             {
                 yield return path;
             }
         }
 
-        private IEnumerable<string> ResolveForeignDomains(string path, string filter, string property)
+        private static IEnumerable<string> ResolveForeignDomains(string path, string filter, string property)
         {
-            List<string> domains = new List<string>();
-
             using (DirectoryEntry rootDirEntry = new DirectoryEntry(string.Format("{0}/RootDSE", path)))
             {
                 string distinguishedName = (string)rootDirEntry.Properties["defaultNamingContext"].Value;
@@ -323,12 +308,10 @@ namespace Affecto.ActiveDirectoryService
 
                     foreach (SearchResult result in results)
                     {
-                        domains.Add(result.Properties[property][0].ToString());
+                        yield return result.Properties[property][0].ToString();
                     }
                 }
             }
-
-            return domains;
         }
 
         private static DirectoryEntry SearchMember(string path, SecurityIdentifier sid)
