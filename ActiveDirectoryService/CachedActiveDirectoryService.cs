@@ -20,7 +20,8 @@ namespace Affecto.ActiveDirectoryService
         private const string GetGroupsWhereUserIsMemberInternalKey = "GetGroupsWhereUserIsMemberInternal";
         private const string GetGroupsWhereUserIsMemberInternalBySecurityIdentifierKey = "GetGroupsWhereUserIsMemberInternalBySecurityIdentifier";
         private const string GetParentDomainPathsKey = "GetParentDomainPaths";
-
+        private const string GetNamingContextKey = "GetNamingContext";
+        
         private static readonly MemoryCache Cache = new MemoryCache(CacheName);
         private static readonly object NullValue = new object();
 
@@ -37,13 +38,14 @@ namespace Affecto.ActiveDirectoryService
             { GetGroupsWhereUserIsMemberByNativeGuidKey, new object() },
             { GetGroupsWhereUserIsMemberInternalKey, new object() },
             { GetGroupsWhereUserIsMemberInternalBySecurityIdentifierKey, new object() },
-            { GetParentDomainPathsKey, new object() }
+            { GetParentDomainPathsKey, new object() },
+            { GetNamingContextKey, new object() }
         };
 
         private readonly TimeSpan cacheDuration;
 
-        public CachedActiveDirectoryService(DomainPath domainPath, TimeSpan cacheDuration)
-            : base(domainPath)
+        public CachedActiveDirectoryService(IEnumerable<DomainPath> domainPaths, TimeSpan cacheDuration)
+            : base(domainPaths)
         {
             this.cacheDuration = cacheDuration;
         }
@@ -107,6 +109,12 @@ namespace Affecto.ActiveDirectoryService
         {
             string cacheKey = CreateCacheKey(GetPrincipalInternalBySidKey, sid.ToString(), FormatAdditionalPropertyNames(additionalPropertyNames));
             return GetCachedValue(GetPrincipalInternalBySidKey, cacheKey, () => base.GetPrincipalInternal(sid, additionalPropertyNames));
+        }
+
+        protected override string GetNamingContext(string path)
+        {
+            string cacheKey = CreateCacheKey(GetNamingContextKey, path);
+            return GetCachedValue(GetNamingContextKey, cacheKey, () => base.GetNamingContext(path));
         }
 
         protected override IEnumerable<string> GetGroupMemberAccountNames(string groupName)
