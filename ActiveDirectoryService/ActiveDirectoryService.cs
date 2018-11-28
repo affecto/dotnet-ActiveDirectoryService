@@ -10,6 +10,8 @@ namespace Affecto.ActiveDirectoryService
 {
     internal class ActiveDirectoryService : IActiveDirectoryService
     {
+        private const string LdapPathPrefix = "LDAP://";
+
         private readonly DomainPath domainPath;
         private readonly string defaultDomain;
         private readonly PriorityList domainPathList = new PriorityList();
@@ -73,8 +75,12 @@ namespace Affecto.ActiveDirectoryService
         {
             using (DirectoryEntry domainEntry = GetDirectoryEntryByNativeGuid(userNativeGuid))
             {
+                SecurityIdentifier sid = GetObjectSid(domainEntry);
                 UserPrincipal principal = Principal.FromDirectoryEntry<UserPrincipal>(domainPath, domainEntry);
-                return GetGroupsWhereUserIsMemberInternal(principal);
+                IReadOnlyCollection<IPrincipal> parentGroups = GetGroupsWhereUserIsMemberInternal(principal);
+                IReadOnlyCollection<IPrincipal> foreignGroups = GetGroupsWhereUserIsMemberInternal(sid);
+
+                return parentGroups.Concat(foreignGroups.Where(o => parentGroups.All(p => p.NativeGuid != o.NativeGuid))).ToList();
             }
         }
 
@@ -105,6 +111,55 @@ namespace Affecto.ActiveDirectoryService
             return groups;
         }
 
+        protected virtual IReadOnlyCollection<IPrincipal> GetGroupsWhereUserIsMemberInternal(SecurityIdentifier sid)
+        {
+            List<IPrincipal> resolvedGroups = new List<IPrincipal>();
+
+            GetItem<object>(path =>
+            {
+                string namingContext = GetNamingContext(path);
+                string filter = string.Format("(&(member=CN={0},CN=ForeignSecurityPrincipals,{1}))", sid.Value, namingContext);
+
+                using (DirectoryEntry entry = new DirectoryEntry(path))
+                using (DirectorySearcher searcher = new DirectorySearcher(entry))
+                {
+                    searcher.Filter = filter;
+                    searcher.PropertiesToLoad.Add(ActiveDirectoryProperties.DistinguishedName);
+                    SearchResultCollection searchResults = searcher.FindAll();
+
+                    foreach (SearchResult result in searchResults)
+                    {
+                        List<IPrincipal> parents = GetParentDomainPaths(GetPathWithProtocol(result.Path), result.Properties[ActiveDirectoryProperties.DistinguishedName][0].ToString());
+                        resolvedGroups.AddRange(parents.Where(o => resolvedGroups.All(p => p.NativeGuid != o.NativeGuid)));
+                    }
+                }
+                return null;
+            }, false);
+
+            return resolvedGroups;
+        }
+
+        protected virtual List<IPrincipal> GetParentDomainPaths(string path, string distinguishedName)
+        {
+            List<IPrincipal> principals = new List<IPrincipal>();
+            string fullDomainPath = path + "/" + distinguishedName;
+            using (DirectoryEntry entry = new DirectoryEntry(fullDomainPath))
+            {
+                GroupPrincipal principal = Principal.FromDirectoryEntry(new DomainPath(path), entry) as GroupPrincipal;
+                if (principal != null)
+                {
+                    principals.Add(principal);
+                    foreach (string memberOf in entry.Properties[ActiveDirectoryProperties.MemberOf])
+                    {
+                        List<IPrincipal> groups = GetParentDomainPaths(path, memberOf);
+                        principals.AddRange(groups.Where(o => principals.All(p => p.NativeGuid != o.NativeGuid)));
+                    }
+                }
+            }
+
+            return principals;
+        }
+
         protected virtual IEnumerable<string> GetGroupMemberAccountNames(string groupName)
         {
             using (var context = new PrincipalContext(ContextType.Domain, domainPath.GetPathWithoutProtocol()))
@@ -121,25 +176,16 @@ namespace Affecto.ActiveDirectoryService
 
         protected virtual IReadOnlyCollection<IPrincipal> ResolveMembers(GroupPrincipal parent, bool isRecursive, ICollection<string> additionalPropertyNames)
         {
-            if (!parent.IsGroup)
-            {
-                return new IPrincipal[0];
-            }
+            List<IPrincipal> results = new List<IPrincipal>();
+            List<SecurityIdentifier> securityIdentifiers = new List<SecurityIdentifier>();
 
-            var results = new List<IPrincipal>();
-            var securityIdentifiers = new List<SecurityIdentifier>();
-
+            string parentDomainPath = GetPathWithProtocol(parent.DomainPath);
             foreach (string childDomainPath in parent.ChildDomainPaths)
             {
-                string fullChildDomainPath = GetDomainPath().GetPathWithProtocol() + "/" + childDomainPath;
-                if (!results.Any(user => user.DomainPath.Equals(fullChildDomainPath)))
+                string fullChildDomainPath = string.Format("{0}/{1}", parentDomainPath, childDomainPath);
+                using (DirectoryEntry childDirectoryEntry = new DirectoryEntry(fullChildDomainPath))
                 {
-                    using (var childDirectoryEntry = new DirectoryEntry(fullChildDomainPath))
-                    {
-                        byte[] objectSid = (byte[])childDirectoryEntry.Properties["objectSid"].Value;
-                        SecurityIdentifier identifier = new SecurityIdentifier(objectSid, 0);
-                        securityIdentifiers.Add(identifier);
-                    }
+                    securityIdentifiers.Add(GetObjectSid(childDirectoryEntry));
                 }
             }
 
@@ -189,7 +235,7 @@ namespace Affecto.ActiveDirectoryService
             });
         }
 
-        protected virtual IPrincipal GetPrincipalInternal(SecurityIdentifier sid, ICollection<string> additionalPropertyNames)
+        protected virtual IPrincipal GetPrincipalInternal(SecurityIdentifier sid, ICollection<string> additionalPropertyNames = null)
         {
             return GetItem(path =>
             {
@@ -205,9 +251,17 @@ namespace Affecto.ActiveDirectoryService
             });
         }
 
-        private T GetItem<T>(Func<string, T> resolver) where T : class
+        protected virtual string GetNamingContext(string path)
         {
-            foreach (string path in GetAllDomainsWithProtocol())
+            using (DirectoryEntry rootDirEntry = new DirectoryEntry(string.Format("{0}/RootDSE", path)))
+            {
+                return (string)rootDirEntry.Properties["defaultNamingContext"].Value;
+            }
+        }
+
+        private T GetItem<T>(Func<string, T> resolver, bool useDemoted = true) where T : class
+        {
+            foreach (string path in GetAllDomainsWithProtocol(useDemoted))
             {
                 try
                 {
@@ -248,7 +302,7 @@ namespace Affecto.ActiveDirectoryService
         {
             return accountName.Contains('\\') ? accountName.Split('\\')[0] : null;
         }
-       
+
         private DomainPath ResolveDomainPath(string domain)
         {
             string filter = string.Format("(flatName={0})", domain);
@@ -256,7 +310,7 @@ namespace Affecto.ActiveDirectoryService
             return new DomainPath(foreignDomain);
         }
 
-        private IEnumerable<string> GetAllDomainsWithProtocol()
+        private IEnumerable<string> GetAllDomainsWithProtocol(bool includeDemoted = true)
         {
             string defaultDomainPath = domainPath.GetPathWithProtocol();
             PriorityList clone = domainPathList.Clone();
@@ -276,6 +330,7 @@ namespace Affecto.ActiveDirectoryService
 
             // Resolve path from AD and yield new
             string filter = "(objectClass=trustedDomain)";
+
             List<string> domains = ResolveForeignDomains(defaultDomainPath, filter, "name").ToList();
             foreach (string path in domains.Select(o => new DomainPath(o).GetPathWithProtocol()))
             {
@@ -287,29 +342,29 @@ namespace Affecto.ActiveDirectoryService
             }
 
             // Yield the rest of the paths
-            foreach (string path in clone.GetDemoted())
+            if (includeDemoted)
             {
-                yield return path;
+                foreach (string path in clone.GetDemoted())
+                {
+                    yield return path;
+                }
             }
         }
 
-        private static IEnumerable<string> ResolveForeignDomains(string path, string filter, string property)
+        private IEnumerable<string> ResolveForeignDomains(string path, string filter, string property)
         {
-            using (DirectoryEntry rootDirEntry = new DirectoryEntry(string.Format("{0}/RootDSE", path)))
+            string distinguishedName = GetNamingContext(path);
+
+            using (DirectoryEntry entry = new DirectoryEntry(string.Format("{0}/cn=system,{1}", path, distinguishedName)))
+            using (DirectorySearcher searcher = new DirectorySearcher(entry))
             {
-                string distinguishedName = (string)rootDirEntry.Properties["defaultNamingContext"].Value;
+                searcher.Filter = filter;
+                searcher.PropertiesToLoad.Add(property);
+                SearchResultCollection results = searcher.FindAll();
 
-                using (DirectoryEntry entry = new DirectoryEntry(string.Format("{0}/cn=system,{1}", path, distinguishedName)))
-                using (DirectorySearcher searcher = new DirectorySearcher(entry))
+                foreach (SearchResult result in results)
                 {
-                    searcher.Filter = filter;
-                    searcher.PropertiesToLoad.Add(property);
-                    SearchResultCollection results = searcher.FindAll();
-
-                    foreach (SearchResult result in results)
-                    {
-                        yield return result.Properties[property][0].ToString();
-                    }
+                    yield return result.Properties[property][0].ToString();
                 }
             }
         }
@@ -329,6 +384,27 @@ namespace Affecto.ActiveDirectoryService
                 }
             }
             return null; // Todo: Exception?
+        }
+
+        private static SecurityIdentifier GetObjectSid(DirectoryEntry domainEntry)
+        {
+            byte[] sid = (byte[])domainEntry.Properties[ActiveDirectoryProperties.ObjectSid].Value;
+            return new SecurityIdentifier(sid, 0);
+        }
+
+        private static string GetPathWithProtocol(string parent)
+        {
+            string parentDomain;
+            if (parent.StartsWith(LdapPathPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                parentDomain = parent.Substring(LdapPathPrefix.Length).Split('/')[0];
+            }
+            else
+            {
+                parentDomain = parent.Split('/')[0];
+            }
+
+            return LdapPathPrefix + parentDomain;
         }
     }
 }
