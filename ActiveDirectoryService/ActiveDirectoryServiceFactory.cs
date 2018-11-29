@@ -6,15 +6,25 @@ namespace Affecto.ActiveDirectoryService
 {
     public static class ActiveDirectoryServiceFactory
     {
-        public static IActiveDirectoryService CreateActiveDirectoryService(string domainPath, params string[] additionalDomainPaths)
+        public static IActiveDirectoryService CreateActiveDirectoryService(string domainPath)
         {
-            IEnumerable<DomainPath> paths = new[] { domainPath }.Concat(additionalDomainPaths).Select(o => new DomainPath(o));
+            return CreateActiveDirectoryService(new[] { domainPath });
+        }
+
+        public static IActiveDirectoryService CreateActiveDirectoryService(IEnumerable<string> domainPaths)
+        {
+            IEnumerable<DomainPath> paths = domainPaths.Select(o => new DomainPath(o));
             return new ActiveDirectoryService(paths);
         }
 
-        public static IActiveDirectoryService CreateCachedActiveDirectoryService(string domainPath, TimeSpan cacheDuration, params string[] additionalDomainPaths)
+        public static IActiveDirectoryService CreateCachedActiveDirectoryService(string domainPath, TimeSpan cacheDuration)
         {
-            IEnumerable<DomainPath> paths = new[] { domainPath }.Concat(additionalDomainPaths).Select(o => new DomainPath(o));
+            return CreateCachedActiveDirectoryService(new[] { domainPath }, cacheDuration);
+        }
+
+        public static IActiveDirectoryService CreateCachedActiveDirectoryService(IEnumerable<string> domainPaths, TimeSpan cacheDuration)
+        {
+            IEnumerable<DomainPath> paths = domainPaths.Select(o => new DomainPath(o));
             return new CachedActiveDirectoryService(paths, cacheDuration);
         }
     }
