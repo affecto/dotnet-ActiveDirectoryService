@@ -248,7 +248,7 @@ namespace Affecto.ActiveDirectoryService
         {
             string domain = GetDomain(accountName);
 
-            foreach (DomainPath domainPath in domains.Where(o => domain == null || domain == o.Value).Select(o => o.Key))
+            foreach (DomainPath domainPath in domains.Where(o => domain == null || o.Value.Equals(domain, StringComparison.OrdinalIgnoreCase)).Select(o => o.Key))
             {
                 using (DirectoryEntry domainEntry = new DirectoryEntry(domainPath.GetPathWithProtocol()))
                 using (PrincipalSearcher searcher = new PrincipalSearcher(domainPath, domainEntry, additionalPropertyNames))
