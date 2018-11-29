@@ -1,18 +1,21 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Affecto.ActiveDirectoryService
 {
     public static class ActiveDirectoryServiceFactory
     {
-        public static IActiveDirectoryService CreateActiveDirectoryService(params string[] domainPaths)
+        public static IActiveDirectoryService CreateActiveDirectoryService(string domainPath, params string[] additionalDomainPaths)
         {
-            return new ActiveDirectoryService(domainPaths.Select(o => new DomainPath(o)));
+            IEnumerable<DomainPath> paths = new[] { domainPath }.Concat(additionalDomainPaths).Select(o => new DomainPath(o));
+            return new ActiveDirectoryService(paths);
         }
 
-        public static IActiveDirectoryService CreateCachedActiveDirectoryService(TimeSpan cacheDuration, params string[] domainPaths)
+        public static IActiveDirectoryService CreateCachedActiveDirectoryService(string domainPath, TimeSpan cacheDuration, params string[] additionalDomainPaths)
         {
-            return new CachedActiveDirectoryService(domainPaths.Select(o => new DomainPath(o)), cacheDuration);
+            IEnumerable<DomainPath> paths = new[] { domainPath }.Concat(additionalDomainPaths).Select(o => new DomainPath(o));
+            return new CachedActiveDirectoryService(paths, cacheDuration);
         }
     }
 }
