@@ -7,6 +7,6 @@
     <description>$description$</description>
     <projectUrl>https://github.com/affecto/dotnet-ActiveDirectoryService</projectUrl>
     <tags>affecto active directory ad activedirectory wrapper</tags>
-    <releaseNotes>Added IsActive property to IPrincipal.</releaseNotes>
+    <releaseNotes>Support for multiple ADs.</releaseNotes>
   </metadata>
 </package>

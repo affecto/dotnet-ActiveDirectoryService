@@ -9,5 +9,7 @@
         public const string Member = "Member";
         public const string MemberOf = "memberOf";
         public const string UserAccountControl = "userAccountControl";
+        public const string ObjectSid = "objectSid";
+        public const string DistinguishedName = "distinguishedName";
     }
 }

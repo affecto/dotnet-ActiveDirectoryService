@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.Caching;
+using System.Security.Principal;
 
 namespace Affecto.ActiveDirectoryService
 {
@@ -9,6 +10,7 @@ namespace Affecto.ActiveDirectoryService
         private const string CacheName = "Affecto.ActiveDirectoryService";
         private const string GetPrincipalInternalByAccountNameKey = "GetPrincipalInternalByAccountNameKey";
         private const string GetPrincipalInternalByNativeGuidKey = "GetPrincipalInternalByNativeGuidKey";
+        private const string GetPrincipalInternalBySidKey = "GetPrincipalInternalBySid";
         private const string GetGroupMembersByGroupNameKey = "GetGroupMembersByGroupName";
         private const string GetGroupMembersByNativeGuidKey = "GetGroupMembersByNativeGuid";
         private const string GetGroupMemberAccountNamesKey = "GetGroupMemberAccountNames";
@@ -16,25 +18,34 @@ namespace Affecto.ActiveDirectoryService
         private const string ResolveMembersKey = "ResolveMembers";
         private const string GetGroupsWhereUserIsMemberByNativeGuidKey = "GetGroupsWhereUserIsMemberByNativeGuid";
         private const string GetGroupsWhereUserIsMemberInternalKey = "GetGroupsWhereUserIsMemberInternal";
-
+        private const string GetGroupsWhereUserIsMemberInternalBySecurityIdentifierKey = "GetGroupsWhereUserIsMemberInternalBySecurityIdentifier";
+        private const string GetParentDomainPathsKey = "GetParentDomainPaths";
+        private const string GetNamingContextKey = "GetNamingContext";
+        
         private static readonly MemoryCache Cache = new MemoryCache(CacheName);
+        private static readonly object NullValue = new object();
+
         private static readonly Dictionary<string, object> Locks = new Dictionary<string, object>
         {
             { GetPrincipalInternalByAccountNameKey, new object() },
             { GetPrincipalInternalByNativeGuidKey, new object() },
+            { GetPrincipalInternalBySidKey, new object() },
             { GetGroupMembersByGroupNameKey, new object() },
             { GetGroupMembersByNativeGuidKey, new object() },
             { GetGroupMemberAccountNamesKey, new object() },
             { SearchPrincipalsKey, new object() },
             { ResolveMembersKey, new object() },
             { GetGroupsWhereUserIsMemberByNativeGuidKey, new object() },
-            { GetGroupsWhereUserIsMemberInternalKey, new object() }
+            { GetGroupsWhereUserIsMemberInternalKey, new object() },
+            { GetGroupsWhereUserIsMemberInternalBySecurityIdentifierKey, new object() },
+            { GetParentDomainPathsKey, new object() },
+            { GetNamingContextKey, new object() }
         };
 
         private readonly TimeSpan cacheDuration;
 
-        public CachedActiveDirectoryService(DomainPath domainPath, TimeSpan cacheDuration)
-            : base(domainPath)
+        public CachedActiveDirectoryService(IEnumerable<DomainPath> domainPaths, TimeSpan cacheDuration)
+            : base(domainPaths)
         {
             this.cacheDuration = cacheDuration;
         }
@@ -69,6 +80,18 @@ namespace Affecto.ActiveDirectoryService
             return GetCachedValue(GetGroupsWhereUserIsMemberInternalKey, cacheKey, () => base.GetGroupsWhereUserIsMemberInternal(principal));
         }
 
+        protected override IReadOnlyCollection<IPrincipal> GetGroupsWhereUserIsMemberInternal(SecurityIdentifier securityIdentifier)
+        {
+            string cacheKey = CreateCacheKey(GetGroupsWhereUserIsMemberInternalBySecurityIdentifierKey, securityIdentifier.Value);
+            return GetCachedValue(GetGroupsWhereUserIsMemberInternalBySecurityIdentifierKey, cacheKey, () => base.GetGroupsWhereUserIsMemberInternal(securityIdentifier));
+        }
+
+        protected override List<IPrincipal> GetParentDomainPaths(string path, string distinguishedName)
+        {
+            string cacheKey = CreateCacheKey(GetParentDomainPathsKey, path, distinguishedName);
+            return GetCachedValue(GetParentDomainPathsKey, cacheKey, () => base.GetParentDomainPaths(path, distinguishedName));
+        }
+
         protected override T GetPrincipalInternal<T>(Guid nativeGuid, ICollection<string> additionalPropertyNames = null)
         {
             string cacheKey = CreateCacheKey(GetPrincipalInternalByNativeGuidKey, typeof(T).FullName, nativeGuid.ToString("N"),
@@ -80,6 +103,18 @@ namespace Affecto.ActiveDirectoryService
         {
             string cacheKey = CreateCacheKey(GetPrincipalInternalByAccountNameKey, accountName, FormatAdditionalPropertyNames(additionalPropertyNames));
             return GetCachedValue(GetPrincipalInternalByAccountNameKey, cacheKey, () => base.GetPrincipalInternal<T>(accountName, additionalPropertyNames));
+        }
+
+        protected override IPrincipal GetPrincipalInternal(SecurityIdentifier sid, ICollection<string> additionalPropertyNames)
+        {
+            string cacheKey = CreateCacheKey(GetPrincipalInternalBySidKey, sid.ToString(), FormatAdditionalPropertyNames(additionalPropertyNames));
+            return GetCachedValue(GetPrincipalInternalBySidKey, cacheKey, () => base.GetPrincipalInternal(sid, additionalPropertyNames));
+        }
+
+        protected override string GetNamingContext(string path)
+        {
+            string cacheKey = CreateCacheKey(GetNamingContextKey, path);
+            return GetCachedValue(GetNamingContextKey, cacheKey, () => base.GetNamingContext(path));
         }
 
         protected override IEnumerable<string> GetGroupMemberAccountNames(string groupName)
@@ -111,27 +146,24 @@ namespace Affecto.ActiveDirectoryService
 
         private T GetCachedValue<T>(string lockName, string key, Func<T> resolver) where T : class
         {
-            T value = Cache.Get(key) as T;
+            object value = Cache.Get(key);
             if (value != null)
             {
-                return value;
+                return value == NullValue ? null : value as T;
             }
 
             lock (Locks[lockName])
             {
-                value = Cache.Get(key) as T;
+                value = Cache.Get(key);
                 if (value != null)
                 {
-                    return value;
+                    return value == NullValue ? null : value as T;
                 }
 
                 value = resolver.Invoke();
-                if (value != null)
-                {
-                    Cache.Add(key, value, new DateTimeOffset(DateTime.UtcNow.Add(cacheDuration)));
-                }
+                Cache.Add(key, value ?? NullValue, new DateTimeOffset(DateTime.UtcNow.Add(cacheDuration)));
 
-                return value;
+                return value as T;
             }
         }
     }
