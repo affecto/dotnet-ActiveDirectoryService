@@ -9,6 +9,6 @@ using System.Runtime.CompilerServices;
 [assembly: AssemblyFileVersion("3.4.0.0")]
 
 // This version is used by NuGet:
-[assembly: AssemblyInformationalVersion("3.4.0-prerelease04")]
+[assembly: AssemblyInformationalVersion("3.4.0")]
 
 [assembly: InternalsVisibleTo("Affecto.ActiveDirectoryService.Tests")]
