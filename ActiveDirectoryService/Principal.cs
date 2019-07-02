@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.DirectoryServices;
+using System.Linq;
 
 namespace Affecto.ActiveDirectoryService
 {
@@ -11,7 +12,8 @@ namespace Affecto.ActiveDirectoryService
         public abstract bool IsGroup { get; }
         public abstract bool IsActive { get; }
         public string DomainPath { get; private set; }
-        public string AccountName {get; private set;}
+        public string DomainName { get; private set; }
+        public string AccountName { get; private set; }
         public string DisplayName { get; private set; }
         public Guid NativeGuid { get; private set; }
         public IDictionary<string, object> AdditionalProperties { get; private set; }
@@ -23,6 +25,7 @@ namespace Affecto.ActiveDirectoryService
             AccountName = directoryEntry.Properties[ActiveDirectoryProperties.AccountName].Value.ToString();
             NativeGuid = new Guid(directoryEntry.NativeGuid);
             DomainPath = directoryEntry.Path;
+            DomainName = GetDomainName(domainPath);
             DisplayName = GetDisplayName(directoryEntry) ?? AccountName;
             AdditionalProperties = GetAdditionalProperties(directoryEntry, additionalPropertyNames);
         }
@@ -54,7 +57,7 @@ namespace Affecto.ActiveDirectoryService
 
             if (principal is T)
             {
-                return (T) principal;
+                return (T)principal;
             }
 
             throw new InvalidCastException(string.Format("Could not cast principal '{0}' to type '{1}'.", principal.AccountName, typeof(T).FullName));
@@ -88,6 +91,20 @@ namespace Affecto.ActiveDirectoryService
             }
 
             return results;
+        }
+
+        private static string GetDomainName(DomainPath domainPath)
+        {
+            string[] splittedDomainPath = domainPath.Value.Split(new string[] { "." }, StringSplitOptions.RemoveEmptyEntries);
+
+            if (splittedDomainPath.Length > 1)
+            {
+                return string.Join(".", splittedDomainPath.Take(splittedDomainPath.Length - 1));
+            }
+            else
+            {
+                return splittedDomainPath[0];
+            }
         }
     }
 }
