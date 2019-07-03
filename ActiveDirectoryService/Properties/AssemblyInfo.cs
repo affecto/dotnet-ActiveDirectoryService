@@ -5,10 +5,10 @@ using System.Runtime.CompilerServices;
 [assembly: AssemblyDescription("Wraps Microsoft Active Directory services.")]
 [assembly: AssemblyCompany("Affecto")]
 
-[assembly: AssemblyVersion("3.6.0.0")]
-[assembly: AssemblyFileVersion("3.6.0.0")]
+[assembly: AssemblyVersion("4.0.0.0")]
+[assembly: AssemblyFileVersion("4.0.0.0")]
 
 // This version is used by NuGet:
-[assembly: AssemblyInformationalVersion("3.6.0")]
+[assembly: AssemblyInformationalVersion("4.0.0")]
 
 [assembly: InternalsVisibleTo("Affecto.ActiveDirectoryService.Tests")]
