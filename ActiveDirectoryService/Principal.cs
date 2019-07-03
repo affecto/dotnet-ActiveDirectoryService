@@ -25,7 +25,7 @@ namespace Affecto.ActiveDirectoryService
             AccountName = directoryEntry.Properties[ActiveDirectoryProperties.AccountName].Value.ToString();
             NativeGuid = new Guid(directoryEntry.NativeGuid);
             DomainPath = directoryEntry.Path;
-            DomainName = GetDomainName(domainPath);
+            DomainName = GetDomainName(directoryEntry);
             DisplayName = GetDisplayName(directoryEntry) ?? AccountName;
             AdditionalProperties = GetAdditionalProperties(directoryEntry, additionalPropertyNames);
         }
@@ -93,18 +93,22 @@ namespace Affecto.ActiveDirectoryService
             return results;
         }
 
-        private static string GetDomainName(DomainPath domainPath)
+        private static string GetDomainName(DirectoryEntry directoryEntry)
         {
-            string[] splittedDomainPath = domainPath.Value.Split(new string[] { "." }, StringSplitOptions.RemoveEmptyEntries);
+            PropertyValueCollection propertyValueCollection = directoryEntry.Properties[ActiveDirectoryProperties.DistinguishedName];
+            if (propertyValueCollection != null)
+            {
+                string distinguishedName = Convert.ToString(propertyValueCollection.Value);
 
-            if (splittedDomainPath.Length > 1)
-            {
-                return string.Join(".", splittedDomainPath.Take(splittedDomainPath.Length - 1));
+                string firstDcElement = distinguishedName.Split(',').FirstOrDefault(x => x.StartsWith("DC=", StringComparison.InvariantCultureIgnoreCase));
+
+                if (!string.IsNullOrEmpty(firstDcElement))
+                {
+                    return firstDcElement.Split('=')[1];
+                }
             }
-            else
-            {
-                return splittedDomainPath[0];
-            }
+
+            return null;
         }
     }
 }
